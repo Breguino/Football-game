@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { InputProvider } from '@/input/InputProvider';
 import { StadiumBackdrop } from '@/ui/primitives/StadiumBackdrop';
 import { SettingsScreen } from '@/ui/screens/SettingsScreen';
+import { HubScreen } from '@/ui/screens/HubScreen';
+import { SquadScreen } from '@/ui/screens/SquadScreen';
 import { useSettings } from '@/state/settings';
 
 export type Screen = 'hub' | 'settings' | 'squad' | 'match';
@@ -17,13 +19,19 @@ export function App() {
 }
 
 function Router() {
-  const [screen, setScreen] = useState<Screen>('settings');
+  const [screen, setScreen] = useState<Screen>('hub');
+  const toHub = () => setScreen('hub');
 
   switch (screen) {
     case 'settings':
-      return <SettingsScreen onExit={() => setScreen('settings')} />;
+      return <SettingsScreen onExit={toHub} />;
+    case 'squad':
+      return <SquadScreen onExit={toHub} />;
+    case 'match':
+      return <SquadScreen onExit={toHub} />;
+    case 'hub':
     default:
-      return <SettingsScreen onExit={() => setScreen('settings')} />;
+      return <HubScreen onNavigate={setScreen} />;
   }
 }
 
