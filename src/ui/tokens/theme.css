@@ -16,6 +16,8 @@
   --fc-scrim:       rgba(0, 0, 0, 0.62);
   --fc-hud-fill:    rgba(0, 0, 0, 0.55);
   --fc-radar-fill:  rgba(0, 0, 0, 0.45);
+  --fc-radar-tick:  rgba(255, 255, 255, 0.50);
+  --fc-hud-shadow:  rgba(0, 0, 0, 0.45);
 
   /* Backdrop: the 3-6% luminance stadium interior behind every menu. */
   --fc-backdrop-beam:  #3A2E22;
@@ -62,6 +64,24 @@
   --pitch-stripe-light: #5C7C34;
   --pitch-stripe-dark:  #4B6B29;
   --pitch-line:         rgba(242, 245, 238, 0.92);
+  --pitch-goal:         #F2F4EF;
+  --pitch-net:          #C8CEC4;
+  --ball-base:          #F4F6F0;
+
+  /* Stadium and lighting. Read by the renderer through tokenRGB(). */
+  --stadium-concrete:   #23252B;
+  --crowd-a:            #6E7684;
+  --crowd-b:            #8C93A0;
+  --crowd-c:            #4A4F5A;
+  --sky-day:            #7C93AE;
+  --sky-dusk:           #3C3C55;
+  --sky-night:          #0A0F1B;
+  --light-sky-day:      #BFD4EA;
+  --light-sky-night:    #4E6D96;
+  --light-ground:       #3F4A32;
+  --light-key-day:      #FFF4E2;
+  --light-key-night:    #DCE9FF;
+  --light-rim:          #8FB6E8;
 
   /* ---- Controls -------------------------------------------------------- */
   --fc-track-fill:  #E8E9E3;
@@ -293,4 +313,21 @@ button {
   display: block;
   z-index: 0;
   pointer-events: none;
+}
+
+/* Shown while the match bundle loads. */
+.fc-booting {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 3;
+  background: var(--fc-void);
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: clamp(20px, 2.4vw, 34px);
+  letter-spacing: 0.04em;
+  transform: var(--display-slant);
+  color: var(--fc-text-muted);
 }

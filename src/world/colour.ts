@@ -87,11 +87,68 @@ export const INK_LIGHT = '#FFFFFF';
 // token-exempt: contrast targets mirroring --fc-text / --fc-text-invert
 export const INK_DARK = '#14161C';
 
+/** The two neutral change strips every league keeps in reserve. */
+// token-exempt: generated kit colours, not interface paint
+export const CHANGE_LIGHT = '#EDEFE9';
+// token-exempt: generated kit colours, not interface paint
+export const CHANGE_DARK = '#151821';
+
 export interface ColourDraw {
   int(min: number, max: number): number;
   pick<T>(items: readonly T[]): T;
   chance(p: number): boolean;
   range(min: number, max: number): number;
+}
+
+/** Perceptual-ish distance between two colours, weighted toward hue. */
+export function colourDistance(a: string, b: string): number {
+  const parse = (hex: string) => {
+    const v = hex.replace('#', '');
+    return [
+      Number.parseInt(v.slice(0, 2), 16),
+      Number.parseInt(v.slice(2, 4), 16),
+      Number.parseInt(v.slice(4, 6), 16),
+    ] as const;
+  };
+  const [r1, g1, b1] = parse(a);
+  const [r2, g2, b2] = parse(b);
+  // Weighted euclidean, the cheap approximation of perceptual distance.
+  const rMean = (r1 + r2) / 2;
+  const dr = r1 - r2;
+  const dg = g1 - g2;
+  const db = b1 - b2;
+  return Math.sqrt(
+    (2 + rMean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rMean) / 256) * db * db,
+  );
+}
+
+/**
+ * Resolves a kit clash the way a fixture does: if the away side's first choice
+ * is too close to the home side's, they change. Two navy teams on the same
+ * pitch is unplayable, not merely untidy.
+ */
+export function resolveKitClash(homePrimary: string, away: ClubColours): ClubColours {
+  const CLASH = 165;
+  if (colourDistance(homePrimary, away.primary) >= CLASH) return away;
+
+  // Try the away side's own secondary first — that is their change strip.
+  if (colourDistance(homePrimary, away.secondary) >= CLASH) {
+    return {
+      primary: away.secondary,
+      secondary: away.primary,
+      ink: inkFor(away.secondary, INK_LIGHT, INK_DARK),
+    };
+  }
+
+  // Otherwise print a change strip: the away hue, pushed to the opposite end
+  // of the lightness range from the home shirt.
+  const homeIsDark = luminance(homePrimary) < 0.25;
+  const changed = homeIsDark ? CHANGE_LIGHT : CHANGE_DARK;
+  return {
+    primary: changed,
+    secondary: away.primary,
+    ink: inkFor(changed, INK_LIGHT, INK_DARK),
+  };
 }
 
 /**

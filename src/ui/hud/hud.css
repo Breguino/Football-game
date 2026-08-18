@@ -1,0 +1,548 @@
+/* ============================================================================
+   Match HUD — PROMPT.md §4.1. Positions authored at 1920x1080 and expressed
+   as percentages, so the layout holds at any size. Total ink under 8% of frame.
+   ============================================================================ */
+
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--font-ui);
+  color: var(--fc-text);
+}
+
+/* ---------------------------------------------------------------------------
+   Scoreboard bug — x 90, y 53, strip 390 x 70 at 1080p.
+   --------------------------------------------------------------------------- */
+
+.bug {
+  position: absolute;
+  left: 4.7%;
+  top: 4.9%;
+  width: 20.3%;
+  min-width: 250px;
+  font-family: var(--font-data);
+  animation: fc-settle-in var(--settle) var(--ease-settle) both;
+  animation-delay: 400ms;
+}
+
+.bug__strip {
+  display: flex;
+  height: clamp(30px, 3.7vw, 46px);
+  filter: drop-shadow(0 2px 8px var(--fc-hud-shadow));
+}
+
+.bug__seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* The chevron seam: 14px of run over a 45px block is 63 degrees. */
+.bug__seg--home,
+.bug__seg--score {
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--chevron-run)) 0,
+    100% 50%,
+    calc(100% - var(--chevron-run)) 100%,
+    0 100%
+  );
+}
+
+.bug__seg--home {
+  flex: 0 0 27%;
+  border-radius: 4px 0 0 4px;
+  background: var(--home-primary);
+  color: var(--home-ink);
+}
+
+.bug__seg--score {
+  flex: 1 1 auto;
+  margin-left: -1px;
+  background: var(--comp-primary);
+  color: var(--fc-text);
+}
+
+.bug__seg--away {
+  flex: 0 0 27%;
+  margin-left: -1px;
+  border-radius: 0 4px 4px 0;
+  background: var(--away-primary);
+  color: var(--away-ink);
+}
+
+.bug__code {
+  font-weight: 800;
+  font-size: clamp(13px, 1.5vw, 21px);
+  letter-spacing: 0.06em;
+}
+
+.bug__score {
+  display: flex;
+  align-items: center;
+  gap: clamp(4px, 0.7vw, 10px);
+}
+
+.bug__num {
+  font-weight: 800;
+  font-size: clamp(17px, 2vw, 28px);
+  font-variant-numeric: tabular-nums;
+  transition: transform var(--settle) var(--ease-settle);
+}
+
+.bug__num[data-just-scored='true'] { transform: scale(1.4); }
+
+.bug__crest {
+  width: clamp(15px, 1.6vw, 23px);
+  height: clamp(15px, 1.6vw, 23px);
+  flex: 0 0 auto;
+}
+
+.bug__clock {
+  width: 34%;
+  margin: 0 auto;
+  height: clamp(19px, 2vw, 27px);
+  background: var(--comp-primary);
+  border-radius: 0 0 4px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: clamp(11px, 1.2vw, 16px);
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.bug__drop {
+  width: 46%;
+  padding: 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 2px auto 0;
+  height: clamp(15px, 1.6vw, 21px);
+  background: var(--fc-track-fill);
+  color: var(--fc-text-invert);
+  border-radius: var(--r-chip);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: clamp(8px, 0.85vw, 11px);
+  letter-spacing: 0.14em;
+}
+
+/* ---------------------------------------------------------------------------
+   Player indicator bars — bottom corners, y 960 at 1080p.
+   --------------------------------------------------------------------------- */
+
+.pbar {
+  position: absolute;
+  bottom: 5.5%;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6%;
+  width: 19.8%;
+  min-width: 260px;
+}
+
+.pbar--left { left: 2%; }
+.pbar--right { right: 2%; flex-direction: row-reverse; }
+
+.pbar__crest { flex: 0 0 auto; }
+
+.pbar__body { flex: 1 1 auto; min-width: 0; }
+
+.pbar__name {
+  position: relative;
+  background: var(--fc-hud-fill);
+  border-radius: var(--r-chip);
+  padding: clamp(5px, 0.8vw, 10px) clamp(8px, 1vw, 14px);
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 0.7vw, 10px);
+  overflow: hidden;
+}
+
+.pbar--right .pbar__name { flex-direction: row-reverse; }
+
+/* Stamina sits on the bar's top edge, 3px, azure, depleting right to left. */
+.pbar__stamina {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 3px;
+  border-radius: var(--r-pill);
+  background: var(--fc-stamina);
+  transition: width 220ms linear;
+}
+
+.pbar--right .pbar__stamina { left: auto; right: 0; }
+
+.pbar__number {
+  font-family: var(--font-data);
+  font-weight: 700;
+  font-size: clamp(11px, 1.15vw, 17px);
+  color: var(--fc-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pbar__surname {
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: clamp(10px, 1.05vw, 16px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pbar__pill {
+  margin: 4px auto 0;
+  width: 78%;
+  background: var(--fc-hud-fill);
+  border-radius: var(--r-chip);
+  padding: clamp(3px, 0.35vw, 6px) clamp(6px, 0.7vw, 10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(5px, 0.55vw, 9px);
+}
+
+.pbar__runner {
+  width: clamp(5px, 0.4vw, 7px);
+  height: clamp(8px, 0.7vw, 12px);
+  border-radius: 2px;
+  background: var(--fc-text-body);
+  flex: 0 0 auto;
+}
+
+.pbar__pips { display: flex; gap: 2px; }
+
+.pbar__pip {
+  width: clamp(5px, 0.45vw, 9px);
+  height: clamp(5px, 0.45vw, 9px);
+  background: var(--fc-pip-off);
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+.pbar__pip[data-on='true'] { background: var(--fc-positive); }
+
+.pbar__divider {
+  width: 1px;
+  height: clamp(7px, 0.6vw, 12px);
+  background: var(--fc-hairline-strong);
+}
+
+.pbar__boot {
+  width: clamp(8px, 0.65vw, 13px);
+  height: clamp(5px, 0.42vw, 8px);
+  border-radius: 2px 5px 2px 2px;
+  background: var(--fc-positive);
+}
+
+.pbar__boot[data-weak='true'] { background: var(--fc-pip-off); }
+
+/* ---------------------------------------------------------------------------
+   Radar — bottom centre, 400 x 204 at 1080p.
+   --------------------------------------------------------------------------- */
+
+.radar {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 5.5%;
+  width: 20.8%;
+  min-width: 240px;
+  aspect-ratio: 400 / 204;
+  background: var(--fc-radar-fill);
+  border-radius: 4px;
+}
+
+.radar__tick {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid var(--fc-radar-tick);
+}
+
+.radar__tick--tl { top: 5px; left: 5px; border-right: 0; border-bottom: 0; }
+.radar__tick--tr { top: 5px; right: 5px; border-left: 0; border-bottom: 0; }
+.radar__tick--bl { bottom: 5px; left: 5px; border-right: 0; border-top: 0; }
+.radar__tick--br { bottom: 5px; right: 5px; border-left: 0; border-top: 0; }
+
+.radar__mark {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.radar__mark--tri {
+  border-radius: 0;
+  width: 0;
+  height: 0;
+  background: none !important;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top-width: 7px;
+  border-top-style: solid;
+}
+
+.radar__ball {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--fc-warn);
+  transform: translate(-50%, -50%);
+}
+
+/* ---------------------------------------------------------------------------
+   Competition watermark — top right.
+   --------------------------------------------------------------------------- */
+
+.hud__comp {
+  position: absolute;
+  top: 3%;
+  right: 3%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.55;
+}
+
+.hud__compname {
+  font-weight: 700;
+  font-size: clamp(9px, 0.72vw, 12px);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-align: center;
+  max-width: 9ch;
+  line-height: 1.3;
+}
+
+/* ---------------------------------------------------------------------------
+   Presentation overlays: goal wipe, half time, full time.
+   --------------------------------------------------------------------------- */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+/* Chevron wipe in the scorer's colour, travelling left to right over 520ms. */
+.goalwipe {
+  position: absolute;
+  inset: 0;
+  background: var(--goal-colour);
+  clip-path: polygon(
+    0 0,
+    calc(var(--wipe) + 6%) 0,
+    var(--wipe) 50%,
+    calc(var(--wipe) + 6%) 100%,
+    0 100%
+  );
+  animation: goal-wipe 520ms var(--ease-push) both;
+}
+
+@keyframes goal-wipe {
+  0%   { --wipe: -10%; opacity: 1; }
+  55%  { --wipe: 106%; opacity: 1; }
+  100% { --wipe: 106%; opacity: 0; }
+}
+
+@property --wipe {
+  syntax: '<percentage>';
+  inherits: true;
+  initial-value: -10%;
+}
+
+.goalcard {
+  position: relative;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  animation: goal-slam 480ms var(--ease-settle) both;
+  animation-delay: 180ms;
+}
+
+@keyframes goal-slam {
+  from { opacity: 0; transform: scale(1.4); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.goalcard__word {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: clamp(48px, 8vw, 130px);
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  transform: var(--display-slant);
+}
+
+.goalcard__scorer {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: clamp(22px, 3vw, 46px);
+  transform: var(--display-slant);
+}
+
+.goalcard__minute {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: clamp(16px, 1.5vw, 24px);
+  letter-spacing: 0.14em;
+  color: var(--fc-text-body);
+}
+
+/* ---- Break card (half time / full time) ---------------------------------- */
+
+.breakcard {
+  position: relative;
+  background: var(--fc-panel);
+  border-radius: var(--r-panel);
+  padding: clamp(26px, 3vw, 46px) clamp(30px, 4vw, 64px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(18px, 2vw, 28px);
+  min-width: min(620px, 76vw);
+  animation: fc-push-in var(--push) var(--ease-push) both;
+}
+
+.breakcard__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: clamp(28px, 3.4vw, 52px);
+  line-height: 1;
+  transform: var(--display-slant);
+  text-align: center;
+}
+
+.breakcard__score {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 2vw, 34px);
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.breakcard__club {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: clamp(14px, 1.2vw, 19px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  flex: 1 1 0;
+}
+
+.breakcard__club--away { flex-direction: row-reverse; text-align: right; }
+
+.breakcard__goals { font-size: clamp(38px, 4.6vw, 72px); line-height: 1; }
+
+.breakcard__stats {
+  display: grid;
+  gap: 12px;
+  padding-top: clamp(14px, 1.6vw, 22px);
+  border-top: 1px solid var(--fc-hairline);
+}
+
+.statline {
+  display: grid;
+  grid-template-columns: 3.6ch 1fr 3.6ch;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: clamp(14px, 1.15vw, 18px);
+  font-variant-numeric: tabular-nums;
+}
+
+.statline__label {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: clamp(10px, 0.75vw, 12px);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+  text-align: center;
+  grid-column: 2;
+}
+
+.statline__bar {
+  grid-column: 2;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--away-primary);
+  overflow: hidden;
+}
+
+.statline__fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--home-primary);
+  transition: width var(--push) var(--ease-push);
+}
+
+.statline__right { text-align: right; }
+
+.breakcard__hint {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  pointer-events: auto;
+}
+
+/* ---- Replay chrome ------------------------------------------------------- */
+
+.replay__bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 10.6%;
+  background: var(--fc-void);
+}
+
+.replay__bar--top { top: 0; }
+.replay__bar--bottom { bottom: 0; }
+
+.replay__chip {
+  position: absolute;
+  top: 13%;
+  left: 4.7%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--r-chip);
+  background: var(--fc-hud-fill);
+  font-size: clamp(10px, 0.78vw, 13px);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.replay__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fc-danger);
+}

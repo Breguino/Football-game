@@ -1,0 +1,333 @@
+import { useEffect, useRef, useState } from 'react';
+import { Crest } from '@/ui/primitives/Crest';
+import { Hint } from '@/ui/primitives/Glyph';
+import type { Club } from '@/world/generate';
+import { clockText, possessionPercent, type MatchState, type SimPlayer } from '@/sim/match';
+import { PITCH_LENGTH, PITCH_WIDTH } from '@/render/pitch';
+import './hud.css';
+
+/**
+ * The match HUD — PROMPT.md §4.1.
+ *
+ * Rendered as DOM over the WebGL canvas rather than in the scene, because the
+ * typography, the chevron clip-paths and the blur are all things the browser
+ * does better than a texture atlas would.
+ */
+
+export interface HudProps {
+  state: MatchState;
+  home: Club;
+  away: Club;
+  competition: string;
+  showScoreClock: boolean;
+  showDropdown: boolean;
+  showRadar: boolean;
+  showNameBars: boolean;
+  indicatorFade: boolean;
+  onFinish: () => void;
+}
+
+export function MatchHud({
+  state,
+  home,
+  away,
+  competition,
+  showScoreClock,
+  showDropdown,
+  showRadar,
+  showNameBars,
+  indicatorFade,
+  onFinish,
+}: HudProps) {
+  const controlled = state.players[state.controlledIndex];
+  const opponent = nearestOpponent(state);
+
+  // Flash the scoreline when it changes.
+  const [justScored, setJustScored] = useState(false);
+  const previousScore = useRef(`${state.score[0]}-${state.score[1]}`);
+  useEffect(() => {
+    const current = `${state.score[0]}-${state.score[1]}`;
+    if (current === previousScore.current) return;
+    previousScore.current = current;
+    setJustScored(true);
+    const timer = window.setTimeout(() => setJustScored(false), 420);
+    return () => window.clearTimeout(timer);
+  }, [state.score]);
+
+  const teamStyle = {
+    ['--home-primary' as string]: home.colours.primary,
+    ['--home-ink' as string]: home.colours.ink,
+    ['--away-primary' as string]: away.colours.primary,
+    ['--away-ink' as string]: away.colours.ink,
+  };
+
+  return (
+    <div className="hud" style={teamStyle}>
+      {showScoreClock && (
+        <div className="bug">
+          <div className="bug__strip">
+            <div className="bug__seg bug__seg--home">
+              <span className="bug__code">{home.code}</span>
+            </div>
+            <div className="bug__seg bug__seg--score">
+              <span className="bug__score">
+                <span className="bug__num" data-just-scored={justScored}>
+                  {state.score[0]}
+                </span>
+                <span className="bug__crest">
+                  <Crest club={home} size={18} />
+                </span>
+                <span className="bug__num" data-just-scored={justScored}>
+                  {state.score[1]}
+                </span>
+              </span>
+            </div>
+            <div className="bug__seg bug__seg--away">
+              <span className="bug__code">{away.code}</span>
+            </div>
+          </div>
+          <div className="bug__clock">{clockText(state)}</div>
+          {showDropdown && <div className="bug__drop">{shortCompetition(competition)}</div>}
+        </div>
+      )}
+
+      <div className="hud__comp">
+        <Crest club={home} size={34} />
+        <span className="hud__compname">{competition}</span>
+      </div>
+
+      {showNameBars && controlled && (
+        <PlayerBar side="left" club={home} player={controlled} indicatorFade={indicatorFade} />
+      )}
+      {showNameBars && opponent && (
+        <PlayerBar side="right" club={away} player={opponent} indicatorFade={indicatorFade} />
+      )}
+
+      {showRadar && <Radar state={state} home={home} away={away} />}
+
+      {state.phase === 'goal' && state.lastGoal && (
+        <GoalOverlay
+          colour={(state.lastGoal.team === 0 ? home : away).colours.primary}
+          scorer={state.lastGoal.scorer}
+          minute={state.lastGoal.minute}
+        />
+      )}
+
+      {(state.phase === 'halftime' || state.phase === 'fulltime') && (
+        <BreakOverlay
+          state={state}
+          home={home}
+          away={away}
+          title={state.phase === 'halftime' ? 'Half Time' : 'Full Time'}
+          onFinish={onFinish}
+        />
+      )}
+    </div>
+  );
+}
+
+function PlayerBar({
+  side,
+  club,
+  player,
+  indicatorFade,
+}: {
+  side: 'left' | 'right';
+  club: Club;
+  player: SimPlayer;
+  indicatorFade: boolean;
+}) {
+  const stamina = indicatorFade ? player.stamina : 100;
+  return (
+    <div className={`pbar pbar--${side}`}>
+      <span className="pbar__crest">
+        <Crest club={club} size={30} />
+      </span>
+      <span className="pbar__body">
+        <span className="pbar__name">
+          <span className="pbar__stamina" style={{ width: `${stamina}%` }} />
+          <span className="pbar__number">{player.number}</span>
+          <span className="pbar__surname">{player.last}</span>
+        </span>
+        <span className="pbar__pill">
+          <span className="pbar__runner" />
+          <span className="pbar__pips">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <span key={n} className="pbar__pip" data-on={n <= player.skillMoves} />
+            ))}
+          </span>
+          <span className="pbar__divider" />
+          <span className="pbar__boot" data-weak={player.weakFoot < 4} />
+          <span className="pbar__boot" />
+        </span>
+      </span>
+    </div>
+  );
+}
+
+function Radar({ state, home, away }: { state: MatchState; home: Club; away: Club }) {
+  return (
+    <div className="radar" aria-hidden="true">
+      <span className="radar__tick radar__tick--tl" />
+      <span className="radar__tick radar__tick--tr" />
+      <span className="radar__tick radar__tick--bl" />
+      <span className="radar__tick radar__tick--br" />
+
+      {state.players.map((p, i) => {
+        const x = ((p.x + PITCH_LENGTH / 2) / PITCH_LENGTH) * 100;
+        const y = ((p.z + PITCH_WIDTH / 2) / PITCH_WIDTH) * 100;
+        const isHome = p.team === 0;
+        return (
+          <span
+            key={i}
+            className={`radar__mark${isHome ? '' : ' radar__mark--tri'}`}
+            style={
+              isHome
+                ? { left: `${x}%`, top: `${y}%`, background: home.colours.primary }
+                : { left: `${x}%`, top: `${y}%`, borderTopColor: away.colours.primary }
+            }
+          />
+        );
+      })}
+
+      <span
+        className="radar__ball"
+        style={{
+          left: `${((state.ball.x + PITCH_LENGTH / 2) / PITCH_LENGTH) * 100}%`,
+          top: `${((state.ball.z + PITCH_WIDTH / 2) / PITCH_WIDTH) * 100}%`,
+        }}
+      />
+    </div>
+  );
+}
+
+function GoalOverlay({
+  colour,
+  scorer,
+  minute,
+}: {
+  colour: string;
+  scorer: string;
+  minute: number;
+}) {
+  return (
+    <div className="overlay" style={{ ['--goal-colour' as string]: colour }}>
+      <span className="goalwipe" />
+      <div className="goalcard">
+        <span className="goalcard__word">Goal</span>
+        <span className="goalcard__scorer">{scorer}</span>
+        <span className="goalcard__minute">{minute}&rsquo;</span>
+      </div>
+    </div>
+  );
+}
+
+function BreakOverlay({
+  state,
+  home,
+  away,
+  title,
+  onFinish,
+}: {
+  state: MatchState;
+  home: Club;
+  away: Club;
+  title: string;
+  onFinish: () => void;
+}) {
+  const [homePossession, awayPossession] = possessionPercent(state);
+  const shotTotal = Math.max(1, state.shots[0] + state.shots[1]);
+
+  return (
+    <div className="overlay">
+      <div className="breakcard">
+        <h2 className="breakcard__title">{title}</h2>
+
+        <div className="breakcard__score">
+          <span className="breakcard__club">
+            <Crest club={home} size={30} />
+            {home.name}
+          </span>
+          <span className="breakcard__goals">{state.score[0]}</span>
+          <span className="breakcard__goals">{state.score[1]}</span>
+          <span className="breakcard__club breakcard__club--away">
+            <Crest club={away} size={30} />
+            {away.name}
+          </span>
+        </div>
+
+        <div className="breakcard__stats">
+          <StatLine
+            label="Possession"
+            left={`${homePossession}%`}
+            right={`${awayPossession}%`}
+            fill={homePossession}
+          />
+          <StatLine
+            label="Shots"
+            left={String(state.shots[0])}
+            right={String(state.shots[1])}
+            fill={(state.shots[0] / shotTotal) * 100}
+          />
+        </div>
+
+        {state.phase === 'fulltime' && (
+          <div className="breakcard__hint">
+            <button type="button" onClick={onFinish} className="fc-hint">
+              <Hint action="back" label="Back to hub" />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatLine({
+  label,
+  left,
+  right,
+  fill,
+}: {
+  label: string;
+  left: string;
+  right: string;
+  fill: number;
+}) {
+  return (
+    <div className="statline">
+      <span>{left}</span>
+      <span className="statline__label">{label}</span>
+      <span className="statline__right">{right}</span>
+      <span className="statline__bar">
+        <span className="statline__fill" style={{ width: `${fill}%` }} />
+      </span>
+    </div>
+  );
+}
+
+/** The chip under the clock is narrow; a full league name will not fit. */
+function shortCompetition(name: string): string {
+  const words = name.split(/\s+/);
+  if (words.length <= 2) return name;
+  return words
+    .filter((w) => w.length > 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+}
+
+/** The away player nearest the ball — who the right-hand bar tracks. */
+function nearestOpponent(state: MatchState): SimPlayer | undefined {
+  let best: SimPlayer | undefined;
+  let bestDistance = Infinity;
+  for (const p of state.players) {
+    if (p.team !== 1) continue;
+    const d = Math.hypot(p.x - state.ball.x, p.z - state.ball.z);
+    if (d < bestDistance) {
+      bestDistance = d;
+      best = p;
+    }
+  }
+  return best;
+}
