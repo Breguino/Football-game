@@ -77,6 +77,7 @@ describe('off-ball targets', () => {
       line: defensiveLine(state.players, player.team, ball, hasPossession),
       isPresser: false,
       settle: { x: ball.x, z: ball.z },
+      mentality: 'balanced',
     });
   }
 
@@ -90,6 +91,7 @@ describe('off-ball targets', () => {
       line: 0,
       isPresser: true,
       settle: { x: 12, z: -7 },
+      mentality: 'balanced',
     });
     expect(target).toMatchObject({ x: 12, z: -7, urgency: 1 });
   });

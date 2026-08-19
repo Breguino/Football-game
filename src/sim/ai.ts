@@ -17,6 +17,38 @@ import { HALF_L, HALF_W } from './rules';
 
 export type Role = 'keeper' | 'centreBack' | 'fullBack' | 'midfield' | 'winger' | 'striker';
 
+/** How a side is set up, in the order a manager thinks about it. */
+export type Mentality = 'defensive' | 'balanced' | 'attacking' | 'allOut';
+
+export const MENTALITIES: Mentality[] = ['defensive', 'balanced', 'attacking', 'allOut'];
+
+export const MENTALITY_LABEL: Record<Mentality, string> = {
+  defensive: 'Defensive',
+  balanced: 'Balanced',
+  attacking: 'Attacking',
+  allOut: 'All-out attack',
+};
+
+interface Shape {
+  /** How far up the pitch the defensive line holds, 0-1 from own goal. */
+  squeeze: number;
+  /** How far ahead of the ball the front players support. */
+  push: number;
+  /** How many players beyond the midfield join the press. */
+  pressers: number;
+}
+
+const SHAPES: Record<Mentality, Shape> = {
+  defensive: { squeeze: 0.34, push: 0.6, pressers: 1 },
+  balanced: { squeeze: 0.42, push: 1, pressers: 1 },
+  attacking: { squeeze: 0.5, push: 1.35, pressers: 2 },
+  allOut: { squeeze: 0.58, push: 1.7, pressers: 3 },
+};
+
+export function shapeFor(mentality: Mentality): Shape {
+  return SHAPES[mentality] ?? SHAPES.balanced;
+}
+
 /** Role per slot in the 4-3-3 the formation is laid out in. */
 export const ROLES: Role[] = [
   'keeper',
@@ -49,11 +81,15 @@ export function defensiveLine(
   team: 0 | 1,
   ball: Ball,
   hasPossession: boolean,
+  mentality: Mentality = 'balanced',
 ): number {
   const dir = attackDir(team);
 
-  // Base depth, measured from this team's own goal outward.
-  const squeeze = hasPossession ? 0.52 : 0.3;
+  // Base depth, measured from this team's own goal outward. A side set up to
+  // attack holds a higher line, which is the whole trade: more territory, more
+  // room in behind.
+  const shape = shapeFor(mentality);
+  const squeeze = hasPossession ? shape.squeeze + 0.1 : shape.squeeze - 0.12;
   let line = (-HALF_L + HALF_L * 2 * squeeze) * dir;
 
   // Never push up past the ball — a back line that steps beyond the ball is
@@ -82,6 +118,8 @@ interface Context {
   isPresser: boolean;
   /** Where a loose ball will come to rest. */
   settle: { x: number; z: number };
+  /** How this side is set up. */
+  mentality: Mentality;
 }
 
 /**
@@ -125,8 +163,9 @@ export function offBallTarget(player: SimPlayer, context: Context): Target {
     return { x: clampX(beyond), z: clampZ(width), urgency: 1 };
   }
 
-  // Everyone else pushes up behind the ball, keeping their own shape.
-  const support = attackingDepth(role);
+  // Everyone else pushes up behind the ball, keeping their own shape. How far
+  // they commit is the mentality.
+  const support = attackingDepth(role) * shapeFor(context.mentality).push;
   const x = context.ball.x + support * dir;
   const z = player.homeZ + (context.ball.z - player.homeZ) * 0.2;
   return { x: clampX(x), z: clampZ(z), urgency: 0.8 };

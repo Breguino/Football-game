@@ -18,7 +18,15 @@ import {
   strike,
   type Ball,
 } from './ball';
-import { defensiveLine, offBallTarget, ROLES, type Role } from './ai';
+import {
+  defensiveLine,
+  MENTALITIES,
+  offBallTarget,
+  ROLES,
+  MENTALITY_LABEL,
+  type Mentality,
+  type Role,
+} from './ai';
 import { createRng, type Rng } from '@/world/rng';
 import {
   checkOutOfPlay,
@@ -113,6 +121,9 @@ export interface MatchState {
   possession: [number, number];
   shots: [number, number];
   saves: [number, number];
+  blocks: [number, number];
+  /** How each side is set up. */
+  mentality: [Mentality, Mentality];
   corners: [number, number];
   fouls: [number, number];
   offsides: [number, number];
@@ -150,6 +161,8 @@ export interface Intent {
   shotType: ShotType;
   sprint: boolean;
   switchPlayer: boolean;
+  /** -1 more defensive, +1 more attacking, 0 no change. */
+  tacticShift: -1 | 0 | 1;
 }
 
 export const NO_INTENT: Intent = {
@@ -160,6 +173,7 @@ export const NO_INTENT: Intent = {
   shotType: 'driven',
   sprint: false,
   switchPlayer: false,
+  tacticShift: 0,
 };
 
 /** 4-3-3, as fractions of half-length and half-width. */
@@ -230,6 +244,8 @@ export function createMatch(
     possession: [0, 0],
     shots: [0, 0],
     saves: [0, 0],
+    blocks: [0, 0],
+    mentality: ['balanced', 'balanced'],
     corners: [0, 0],
     fouls: [0, 0],
     offsides: [0, 0],
@@ -554,6 +570,44 @@ function positionSuits(position: Player['position'], role: Role): boolean {
   }
 }
 
+/** Moves a side one step along the mentality scale. */
+function shiftMentality(state: MatchState, team: 0 | 1, direction: -1 | 1): void {
+  const current = MENTALITIES.indexOf(state.mentality[team]);
+  const next = Math.max(0, Math.min(MENTALITIES.length - 1, current + direction));
+  if (next === current) return;
+
+  const chosen = MENTALITIES[next]!;
+  state.mentality[team] = chosen;
+  state.decision = {
+    text: 'Tactics',
+    detail: MENTALITY_LABEL[chosen],
+    until: state.clock + 2.6,
+  };
+}
+
+/**
+ * How the AI side sets itself up.
+ *
+ * Managers change shape for two reasons — the scoreline and the clock — and
+ * almost never for anything else in the last twenty minutes.
+ */
+function reactTactically(state: MatchState): void {
+  const elapsed = state.clock / (state.halfLength * 2);
+  const margin = state.score[1] - state.score[0];
+
+  let wanted: Mentality = 'balanced';
+  if (elapsed > 0.7) {
+    if (margin < 0) wanted = margin <= -2 ? 'allOut' : 'attacking';
+    else if (margin > 0) wanted = 'defensive';
+  } else if (margin > 1) {
+    wanted = 'defensive';
+  } else if (margin < -1) {
+    wanted = 'attacking';
+  }
+
+  if (state.mentality[1] !== wanted) state.mentality[1] = wanted;
+}
+
 /** Gives stamina back at a stoppage, as a break in play does. */
 function recover(state: MatchState, amount: number) {
   for (const p of state.players) {
@@ -573,6 +627,13 @@ function distanceToBall(p: SimPlayer, ball: Ball): number {
 
 export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
   if (state.phase === 'fulltime') return state;
+
+  // ---- Tactics ------------------------------------------------------------
+  // Before the phase guards: a manager changes shape at a stoppage as often as
+  // in open play, and dropping the change because the ball happened to be out
+  // is the opposite of how it works.
+  if (intent.tacticShift !== 0) shiftMentality(state, 0, intent.tacticShift);
+  reactTactically(state);
 
   // ---- Restarts -----------------------------------------------------------
   if (state.phase === 'restart') {
@@ -654,8 +715,8 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
 
   // Each side's defensive line, computed once rather than per player.
   const lines: [number, number] = [
-    defensiveLine(state.players, 0, ball, owner?.team === 0),
-    defensiveLine(state.players, 1, ball, owner?.team === 1),
+    defensiveLine(state.players, 0, ball, owner?.team === 0, state.mentality[0]),
+    defensiveLine(state.players, 1, ball, owner?.team === 1, state.mentality[1]),
   ];
 
   for (let i = 0; i < state.players.length; i += 1) {
@@ -721,6 +782,7 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
         line: lines[p.team]!,
         isPresser: nearestToBall(state, p.team) === i,
         settle,
+        mentality: state.mentality[p.team],
       });
 
       const dx = target.x - p.x;
@@ -810,6 +872,48 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
     // meant the harder a shot was struck the more likely it was intercepted,
     // and almost none survived the flight to the goal.
     const baseReach = Math.max(0.62, 0.95 - pace * 0.008);
+
+    // A fast ball passing close to an opponent is blocked, not gathered. This
+    // is what a defender throwing themselves in front of a shot does, and a
+    // block near the byline is the commonest way a corner is conceded.
+    const struckBy = state.lastTouch === null ? null : state.players[state.lastTouch];
+    if (pace > 17 && ball.y < 1.9 && struckBy) {
+      let blocker = -1;
+      let blockGap = Infinity;
+      for (let i = 0; i < state.players.length; i += 1) {
+        const p = state.players[i]!;
+        // Only an opponent blocks. A team-mate in the way of a pass either
+        // takes it or lets it run; treating that as a block turned every
+        // driven ball into one and produced 123 of them a match.
+        if (p.team === struckBy.team) continue;
+        const gap = distanceToBall(p, ball);
+        if (gap < 1.05 && gap < blockGap) {
+          blockGap = gap;
+          blocker = i;
+        }
+      }
+
+      // And they have to actually get something on it.
+      const stopper = blocker >= 0 ? state.players[blocker]! : null;
+      if (stopper && state.rng.next() < 0.25 + (stopper.defending / 99) * 0.3) {
+        const p = stopper;
+        // Off the block. A blocked shot mostly sprays onward and sideways —
+        // which is what carries one behind for a corner. Reversing all of them
+        // sends every block back toward the shooter and concedes nothing.
+        const incoming = Math.atan2(ball.vz, ball.vx);
+        const side = Math.sign(ball.z - p.z) || 1;
+        const onward = state.rng.next() < 0.65;
+        const angle = onward
+          ? incoming + side * (0.5 + state.rng.next() * 1.5)
+          : incoming + Math.PI + side * (0.35 + state.rng.next() * 1.1);
+        const kept = 0.3 + state.rng.next() * 0.4;
+        strike(ball, angle, pace * kept, 1.2 + state.rng.next() * 2.6, 0);
+        state.lastTouch = blocker;
+        state.passIntent = null;
+        state.blocks[p.team] += 1;
+        return state;
+      }
+    }
 
     // Whoever is *nearest* takes it, not whoever comes first in the array.
     // Team 0 occupies indices 0-10 and team 1 occupies 11-21, so scanning in
@@ -967,23 +1071,25 @@ function decideOnBall(state: MatchState, index: number, dt: number) {
     return;
   }
 
-  // Nobody shoots into a defender's shins from a metre away. Without this the
-  // shot count runs away and almost none of them reach the goal, because they
-  // are all blocked the instant they are struck.
+  // A blocked lane discourages a shot rather than forbidding it. Suppressing
+  // it entirely means defenders never block anything, and blocks are where
+  // most corners come from.
   const laneBlocked = isShootingLaneBlocked(state, carrier, goalX);
 
   // Shooting: near-certain inside the box, tailing off to nothing past 30m.
   // A player who has just struck the ball needs to reset before the next one;
   // without this, a save that drops in the six-yard box draws a burst of
   // point-blank shots from the same striker and the shot count runs away.
-  if (range < 30 && carrier.shotCooldown <= 0 && !laneBlocked) {
+  if (range < 30 && carrier.shotCooldown <= 0) {
     // A flatter curve than pure proximity: real teams shoot from range too,
     // and a mix weighted almost entirely to six-yard chances puts every shot
     // on target and turns the keeper into a wall.
     const appetite = (1 - range / 30) ** 0.8;
     const confidence = 0.35 + (carrier.shooting / 99) * 0.65;
     const squeezed = pressure < 2.2 ? 1.5 : 1;
-    if (state.rng.next() < appetite * confidence * squeezed * dt * 0.95) {
+    // Players still mostly look for a better option than a defender's shins.
+    const blocked = laneBlocked ? 0.22 : 1;
+    if (state.rng.next() < appetite * confidence * squeezed * blocked * dt * 0.95) {
       // Close in, a player places it; from distance they hit it. Good
       // finishers curl more of them.
       const finesseChance = range < 14 ? 0.35 + (carrier.shooting / 99) * 0.3 : 0.12;
@@ -1122,7 +1228,7 @@ function clear(state: MatchState, from: number) {
 
   // Deep inside their own area with nowhere to go, a defender concedes the
   // corner on purpose rather than risk playing it across their own box.
-  if (Math.abs(player.x - ownGoal) < 13 && state.rng.next() < 0.3) {
+  if (Math.abs(player.x - ownGoal) < 19 && state.rng.next() < 0.45) {
     const behind = Math.atan2(Math.sign(player.z || 1) * 12, -dir * 14);
     strike(state.ball, behind, 16 + state.rng.next() * 8, 4, 0);
     return;
@@ -1262,7 +1368,7 @@ function checkGoal(state: MatchState) {
       state.lastTouch = keeperIndex;
       state.saves[defendingTeam] += 1;
 
-      if (state.rng.next() < 0.34) {
+      if (state.rng.next() < 0.5) {
         ball.x = side * (HALF_L + 0.4);
         ball.vx = side * 3;
         ball.vz = (state.rng.next() < 0.5 ? -1 : 1) * (6 + state.rng.next() * 7);

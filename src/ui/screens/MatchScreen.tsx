@@ -121,8 +121,23 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
     let replay: ReplayPlayer | null = null;
 
     // ---- Input --------------------------------------------------------
+    // Two sets, because keys are asked two different questions. Movement and
+    // sprint want to know what is *held right now*; passing, shooting and
+    // tactics want to know what was *pressed since the last frame*. Reading an
+    // edge-triggered action off the held set drops any press shorter than one
+    // frame — which at three frames a second is most of them.
     const held = new Set<string>();
+    const pressed = new Set<string>();
+    // Tactical shifts accumulate rather than joining the press set: two taps
+    // inside one frame are two shifts, and a Set would collapse them to one.
+    let pendingTactic = 0;
+
     const onKeyDown = (e: KeyboardEvent) => {
+      if (!e.repeat) {
+        pressed.add(e.code);
+        if (e.code === 'BracketRight') pendingTactic += 1;
+        if (e.code === 'BracketLeft') pendingTactic -= 1;
+      }
       held.add(e.code);
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
         e.preventDefault();
@@ -155,20 +170,36 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
         moveZ /= length;
       }
 
+      // Tactics on the d-pad. The pad has no event stream, so its buttons are
+      // still latched; the keyboard uses the press set.
+      const padUp = pad?.buttons[12]?.pressed ?? false;
+      const padDown = pad?.buttons[13]?.pressed ?? false;
+      if (padUp && !tacticLatch) pendingTactic += 1;
+      if (padDown && !tacticLatch) pendingTactic -= 1;
+      tacticLatch = padUp || padDown;
+
+      // One step per frame, keeping the rest queued for the frames after.
+      const tactic: -1 | 0 | 1 = pendingTactic > 0 ? 1 : pendingTactic < 0 ? -1 : 0;
+      pendingTactic -= tactic;
+
       // Shot modifiers: a bumper held with the shoot button picks the type,
-      // the way every football game does it.
+      // the way every football game does it. Modifiers are held, not pressed.
       const finesse = held.has('KeyU') || (pad?.buttons[5]?.pressed ?? false);
       const power = held.has('KeyO') || (pad?.buttons[4]?.pressed ?? false);
 
-      return {
+      const intent: Intent = {
         moveX,
         moveZ,
-        pass: held.has('KeyJ') || (pad?.buttons[2]?.pressed ?? false),
-        shoot: held.has('KeyK') || (pad?.buttons[3]?.pressed ?? false),
+        pass: pressed.has('KeyJ') || (pad?.buttons[2]?.pressed ?? false),
+        shoot: pressed.has('KeyK') || (pad?.buttons[3]?.pressed ?? false),
         shotType: finesse ? 'finesse' : power ? 'power' : 'driven',
         sprint: held.has('ShiftLeft') || ((pad?.buttons[7]?.value ?? 0) > 0.5),
-        switchPlayer: held.has('Space') || (pad?.buttons[0]?.pressed ?? false),
+        switchPlayer: pressed.has('Space') || (pad?.buttons[0]?.pressed ?? false),
+        tacticShift: tactic,
       };
+
+      pressed.clear();
+      return intent;
     }
 
     // ---- Loop ---------------------------------------------------------
@@ -185,6 +216,7 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
     let passLatch = false;
     let shootLatch = false;
     let switchLatch = false;
+    let tacticLatch = false;
 
     function frame(now: number) {
       const frameTime = Math.min(0.25, (now - last) / 1000);
@@ -229,17 +261,24 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
       if (stageNow === 'playing') {
         accumulator += frameTime;
         const raw = readIntent();
+        let tacticApplied = false;
 
         while (accumulator >= TICK) {
+          // Every edge-triggered action is latched to the first tick of the
+          // frame. More than one fixed tick runs per frame at any frame rate
+          // below 60, so an unlatched action fires once per tick — a single
+          // d-pad press ran the whole mentality scale in one frame.
           const intent: Intent = {
             ...raw,
             pass: raw.pass && !passLatch,
             shoot: raw.shoot && !shootLatch,
             switchPlayer: raw.switchPlayer && !switchLatch,
+            tacticShift: tacticApplied ? 0 : raw.tacticShift,
           };
           passLatch = raw.pass;
           shootLatch = raw.shoot;
           switchLatch = raw.switchPlayer;
+          if (raw.tacticShift !== 0) tacticApplied = true;
 
           step(state, intent);
           accumulator -= TICK;

@@ -3,6 +3,7 @@ import { Crest } from '@/ui/primitives/Crest';
 import { Hint } from '@/ui/primitives/Glyph';
 import type { Club } from '@/world/generate';
 import { clockText, possessionPercent, type MatchState, type SimPlayer } from '@/sim/match';
+import { MENTALITIES, MENTALITY_LABEL } from '@/sim/ai';
 import { PITCH_LENGTH, PITCH_WIDTH } from '@/render/pitch';
 import './hud.css';
 
@@ -90,6 +91,8 @@ export function MatchHud({
           {showDropdown && <div className="bug__drop">{shortCompetition(competition)}</div>}
         </div>
       )}
+
+      <Tactics state={state} />
 
       <div className="hud__comp">
         <Crest club={home} size={34} />
@@ -205,6 +208,26 @@ function Radar({ state, home, away }: { state: MatchState; home: Club; away: Clu
           top: `${((state.ball.z + PITCH_WIDTH / 2) / PITCH_WIDTH) * 100}%`,
         }}
       />
+    </div>
+  );
+}
+
+/** The side's shape, as a four-rung ladder. */
+function Tactics({ state }: { state: MatchState }) {
+  const level = MENTALITIES.indexOf(state.mentality[0]);
+  return (
+    <div className="tactics">
+      <span className="tactics__ladder" aria-hidden="true">
+        {MENTALITIES.map((m, i) => (
+          <span
+            key={m}
+            className="tactics__rung"
+            data-on={i <= level}
+            style={{ height: `${40 + i * 20}%` }}
+          />
+        ))}
+      </span>
+      <span className="tactics__label">{MENTALITY_LABEL[state.mentality[0]]}</span>
     </div>
   );
 }

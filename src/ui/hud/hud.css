@@ -617,3 +617,44 @@
   color: var(--fc-text-muted);
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------------------
+   Tactics chip — the side's current shape, under the scoreboard.
+   --------------------------------------------------------------------------- */
+
+.tactics {
+  position: absolute;
+  left: 4.7%;
+  top: 19%;
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(8px, 0.8vw, 12px);
+  padding: clamp(5px, 0.55vw, 8px) clamp(10px, 1vw, 15px);
+  border-radius: var(--r-chip);
+  background: var(--fc-hud-fill);
+}
+
+.tactics__ladder {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: clamp(10px, 0.9vw, 14px);
+}
+
+.tactics__rung {
+  width: clamp(3px, 0.28vw, 4px);
+  border-radius: 1px;
+  background: var(--fc-text-dim);
+  transition: background var(--snap) var(--ease-snap);
+}
+
+.tactics__rung[data-on='true'] { background: var(--fc-focus); }
+
+.tactics__label {
+  font-size: clamp(9px, 0.75vw, 12px);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fc-text);
+  white-space: nowrap;
+}
