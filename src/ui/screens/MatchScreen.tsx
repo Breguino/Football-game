@@ -7,7 +7,7 @@ import { useSettings } from '@/state/settings';
 import { useNavigation } from '@/input/InputProvider';
 import { createMatch, step, TICK, type Intent, type MatchState } from '@/sim/match';
 import { ReplayBuffer, ReplayPlayer } from '@/sim/replay';
-import { startingEleven } from '@/world/generate';
+import { matchSquad, startingEleven } from '@/world/generate';
 import { resolveKitClash } from '@/world/colour';
 import type { CameraPreset } from '@/render/camera';
 import type { NavAction } from '@/input/actions';
@@ -48,6 +48,9 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
 
   const homeEleven = useMemo(() => startingEleven(home), [home]);
   const awayEleven = useMemo(() => startingEleven(away), [away]);
+  // The match takes the whole squad; the bench is what makes subs possible.
+  const homeSquad = useMemo(() => matchSquad(home), [home]);
+  const awaySquad = useMemo(() => matchSquad(away), [away]);
 
   const [stage, setStage] = useState<Stage>('walkout');
   const stageRef = useRef<Stage>('walkout');
@@ -102,7 +105,7 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const state = createMatch(homeEleven, awayEleven, {
+    const state = createMatch(homeSquad, awaySquad, {
       halfLength: Number(settingsValue('halfLength') ?? 6),
     });
 
@@ -152,11 +155,17 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
         moveZ /= length;
       }
 
+      // Shot modifiers: a bumper held with the shoot button picks the type,
+      // the way every football game does it.
+      const finesse = held.has('KeyU') || (pad?.buttons[5]?.pressed ?? false);
+      const power = held.has('KeyO') || (pad?.buttons[4]?.pressed ?? false);
+
       return {
         moveX,
         moveZ,
         pass: held.has('KeyJ') || (pad?.buttons[2]?.pressed ?? false),
         shoot: held.has('KeyK') || (pad?.buttons[3]?.pressed ?? false),
+        shotType: finesse ? 'finesse' : power ? 'power' : 'driven',
         sprint: held.has('ShiftLeft') || ((pad?.buttons[7]?.value ?? 0) > 0.5),
         switchPlayer: held.has('Space') || (pad?.buttons[0]?.pressed ?? false),
       };
@@ -170,6 +179,7 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
     let primed = false;
     let elapsed = 0;
     let previousGoals = state.score[0] + state.score[1];
+    let lastShotAt = -1;
 
     // Actions are edge-triggered: holding pass must not fire every tick.
     let passLatch = false;
@@ -236,6 +246,14 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
         }
 
         buffer.record(state, frameTime);
+      }
+
+      // A power shot punches the camera, which is most of what makes one feel
+      // different from a placed finish.
+      const shot = state.lastShot;
+      if (shot && shot.at !== lastShotAt) {
+        lastShotAt = shot.at;
+        if (shot.type === 'power') scene.shake(0.55, 0.28);
       }
 
       // A goal cuts to the replay, the way a broadcast does.

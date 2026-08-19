@@ -18,6 +18,7 @@ import {
   strike,
   type Ball,
 } from './ball';
+import { defensiveLine, offBallTarget, ROLES, type Role } from './ai';
 import {
   checkOutOfPlay,
   HALF_L,
@@ -57,6 +58,8 @@ export interface SimPlayer {
   /** Seconds before this player can strike the ball again. */
   shotCooldown: number;
   cards: 'none' | 'yellow' | 'red';
+  /** Index into the formation, which decides this player's role. */
+  slot: number;
 }
 
 export type { Ball };
@@ -84,7 +87,8 @@ export interface MatchEvent {
     | 'foul'
     | 'yellow'
     | 'red'
-    | 'save';
+    | 'save'
+    | 'substitution';
   team?: 0 | 1;
   /** Surname, for goals, cards and fouls. */
   player?: string;
@@ -119,13 +123,23 @@ export interface MatchState {
   passIntent: PassIntent | null;
   /** What the referee last gave, for the HUD banner. */
   decision: { text: string; detail: string; until: number } | null;
+  /** The most recent strike, so the renderer can punch the camera on a power shot. */
+  lastShot: { type: ShotType; at: number; team: 0 | 1 } | null;
+  /** Players available to come on, per team. */
+  bench: [Player[], Player[]];
+  /** Substitutions used, per team. Three each, as the laws allow. */
+  subsUsed: [number, number];
 }
+
+export type ShotType = 'driven' | 'finesse' | 'power';
 
 export interface Intent {
   moveX: number;
   moveZ: number;
   pass: boolean;
   shoot: boolean;
+  /** Which kind of shot the modifiers are asking for. */
+  shotType: ShotType;
   sprint: boolean;
   switchPlayer: boolean;
 }
@@ -135,6 +149,7 @@ export const NO_INTENT: Intent = {
   moveZ: 0,
   pass: false,
   shoot: false,
+  shotType: 'driven',
   sprint: false,
   switchPlayer: false,
 };
@@ -151,6 +166,10 @@ function mirror(x: number, team: 0 | 1): number {
   return team === 0 ? x : -x;
 }
 
+/**
+ * Builds a match from two squads. The first eleven of each start; the next
+ * seven sit on the bench and can come on.
+ */
 export function createMatch(
   home: Player[],
   away: Player[],
@@ -184,6 +203,7 @@ export function createMatch(
         preferredFoot: player.preferredFoot,
         shotCooldown: 0,
         cards: 'none',
+        slot: i,
       });
     });
   }
@@ -210,6 +230,9 @@ export function createMatch(
     restart: null,
     passIntent: null,
     decision: null,
+    lastShot: null,
+    bench: [home.slice(11, 18), away.slice(11, 18)],
+    subsUsed: [0, 0],
   };
 }
 
@@ -397,6 +420,7 @@ function stepRestart(state: MatchState, dt: number) {
   // takes the same wall-clock time whatever the half length — so short matches
   // would rest proportionally far more than long ones.
   recover(state, 1.1 * (720 / (state.halfLength * 2)));
+  considerSubstitutions(state);
 
   // Play it.
   if (restart.taker !== null) {
@@ -415,6 +439,109 @@ function stepRestart(state: MatchState, dt: number) {
     cross(state, restart.taker);
   } else if (restart.taker !== null) {
     pass(state, restart.taker);
+  }
+}
+
+/**
+ * Brings a fresh player on.
+ *
+ * The substitute takes over the outgoing player's array index rather than
+ * being appended, so every index held elsewhere — the ball's owner, the
+ * controlled player, a restart's taker — stays valid. Reindexing the squad
+ * mid-match would invalidate all of them at once.
+ */
+function substitute(state: MatchState, index: number, replacement: Player): void {
+  const out = state.players[index];
+  if (!out) return;
+
+  out.id = replacement.id;
+  out.number = replacement.number;
+  out.last = replacement.last;
+  out.pace = replacement.attributes.pace;
+  out.passing = replacement.attributes.passing;
+  out.shooting = replacement.attributes.shooting;
+  out.defending = replacement.attributes.defending;
+  out.skillMoves = replacement.skillMoves;
+  out.weakFoot = replacement.weakFoot;
+  out.preferredFoot = replacement.preferredFoot;
+  out.cards = 'none';
+  out.shotCooldown = 0;
+  // Fresh legs are the entire point.
+  out.stamina = 100;
+}
+
+/**
+ * Makes any substitutions a side wants at this stoppage.
+ *
+ * Managers change tired players, and only at a break in play — which is why
+ * this runs from the restart handler rather than the main loop.
+ */
+function considerSubstitutions(state: MatchState): void {
+  for (const team of [0, 1] as const) {
+    if (state.subsUsed[team] >= 3) continue;
+    const bench = state.bench[team];
+    if (bench.length === 0) continue;
+
+    // The most tired outfield player, if they are genuinely spent.
+    let worst = -1;
+    let worstStamina = 46;
+    state.players.forEach((p, i) => {
+      if (p.team !== team || isKeeper(state, i)) return;
+      if (p.stamina < worstStamina) {
+        worstStamina = p.stamina;
+        worst = i;
+      }
+    });
+    if (worst < 0) continue;
+
+    // Bring on whoever best covers that role.
+    const outgoing = state.players[worst]!;
+    const position = ROLES[outgoing.slot] ?? 'midfield';
+    let choice = 0;
+    let bestFit = -Infinity;
+    bench.forEach((candidate, i) => {
+      const fit = candidate.overall + (positionSuits(candidate.position, position) ? 8 : 0);
+      if (fit > bestFit) {
+        bestFit = fit;
+        choice = i;
+      }
+    });
+
+    const [replacement] = bench.splice(choice, 1);
+    if (!replacement) continue;
+
+    const departing = outgoing.last;
+    substitute(state, worst, replacement);
+    state.subsUsed[team] += 1;
+    state.events.push({
+      type: 'substitution',
+      team,
+      player: `${replacement.last} for ${departing}`,
+      minute: minuteOf(state),
+    });
+    state.decision = {
+      text: 'Substitution',
+      detail: `${replacement.last} on for ${departing}`,
+      until: state.clock + 3.2,
+    };
+  }
+}
+
+/** Whether a squad position covers a formation role. */
+function positionSuits(position: Player['position'], role: Role): boolean {
+  switch (role) {
+    case 'centreBack':
+      return position === 'CB';
+    case 'fullBack':
+      return position === 'LB' || position === 'RB';
+    case 'midfield':
+      return position === 'CDM' || position === 'CM' || position === 'CAM';
+    case 'winger':
+      return position === 'LW' || position === 'RW';
+    case 'striker':
+      return position === 'ST';
+    default:
+      return position === 'GK';
   }
 }
 
@@ -457,6 +584,7 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
       } else if (state.phase === 'halftime') {
         state.half = 2;
         recover(state, 22);
+        considerSubstitutions(state);
         resetPositions(state, 1);
         state.phase = 'live';
       } else if (state.phase === 'kickoff') {
@@ -512,6 +640,12 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
     state.controlledIndex = best;
   }
 
+  // Each side's defensive line, computed once rather than per player.
+  const lines: [number, number] = [
+    defensiveLine(state.players, 0, ball, owner?.team === 0),
+    defensiveLine(state.players, 1, ball, owner?.team === 1),
+  ];
+
   for (let i = 0; i < state.players.length; i += 1) {
     const p = state.players[i]!;
     const isControlled = i === state.controlledIndex;
@@ -563,31 +697,26 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
       ax = (dx / length) * urgency;
       az = (dz / length) * urgency;
     } else {
-      // Everyone else holds a shape that shifts with the ball, and the nearest
-      // defender presses. This is not a tactics engine; it is enough structure
-      // that the pitch never looks static.
-      const attacking = owner?.team === p.team;
-      // The whole team slides with the ball; when in possession the forwards
-      // push on harder than the back line, so the shape stretches rather than
-      // shuffling sideways as a block.
-      const forwardness = (p.homeX * (p.team === 0 ? 1 : -1)) / (HALF_L * 0.92);
-      const push = attacking ? 0.3 + Math.max(0, forwardness) * 0.5 : 0.24;
-      const shift = ball.x * push;
-      const targetX = p.homeX + shift;
-      const targetZ = p.homeZ + (ball.z - p.homeZ) * 0.16;
-
-      const nearest = nearestToBall(state, p.team);
-      const shouldPress = !attacking && nearest === i;
-
-      // Chase where the ball is going to be, not where it is. Running at a
-      // rolling ball's current position means arriving permanently behind it.
+      // Everyone else takes their target from the off-ball model: role, the
+      // line their team is holding, and whether their side has the ball.
+      const hasPossession = owner?.team === p.team;
       const settle = ball.owner === null ? restingPoint(ball) : { x: ball.x, z: ball.z };
-      const tx = shouldPress ? settle.x : targetX;
-      const tz = shouldPress ? settle.z : targetZ;
-      const dx = tx - p.x;
-      const dz = tz - p.z;
+      const target = offBallTarget(p, {
+        players: state.players,
+        ball,
+        owner: ball.owner,
+        hasPossession,
+        line: lines[p.team]!,
+        isPresser: nearestToBall(state, p.team) === i,
+        settle,
+      });
+
+      const dx = target.x - p.x;
+      const dz = target.z - p.z;
       const length = Math.hypot(dx, dz) || 1;
-      const urgency = shouldPress ? 1 : Math.min(1, length / 6);
+      // Ease off as the target is reached, so players settle rather than
+      // jittering around a point.
+      const urgency = target.urgency * Math.min(1, length / 3.5);
       ax = (dx / length) * urgency;
       az = (dz / length) * urgency;
     }
@@ -638,7 +767,7 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
   if (owner && ball.owner !== null) {
     const userOnBall = ball.owner === state.controlledIndex && owner.team === 0;
 
-    if (userOnBall && intent.shoot) shoot(state, ball.owner);
+    if (userOnBall && intent.shoot) shoot(state, ball.owner, intent.shotType);
     else if (userOnBall && intent.pass) pass(state, ball.owner);
     else if (!userOnBall || !userActing) decideOnBall(state, ball.owner, dt);
   }
@@ -815,6 +944,17 @@ function decideOnBall(state: MatchState, index: number, dt: number) {
     pressure = Math.min(pressure, Math.hypot(p.x - carrier.x, p.z - carrier.z));
   }
 
+  // A defender under pressure in their own third clears their lines rather
+  // than trying to dribble out of trouble. This is most of what a back four
+  // does with the ball, and it is where corners and throw-ins come from.
+  const ownGoal = ownGoalX(carrier.team);
+  const ownThird = Math.abs(carrier.x - ownGoal) < 30;
+  const isDefender = carrier.slot >= 1 && carrier.slot <= 4;
+  if (ownThird && (isDefender || pressure < 2.4) && Math.random() < dt * 1.4) {
+    clear(state, index);
+    return;
+  }
+
   // Nobody shoots into a defender's shins from a metre away. Without this the
   // shot count runs away and almost none of them reach the goal, because they
   // are all blocked the instant they are struck.
@@ -831,8 +971,13 @@ function decideOnBall(state: MatchState, index: number, dt: number) {
     const appetite = (1 - range / 30) ** 0.8;
     const confidence = 0.35 + (carrier.shooting / 99) * 0.65;
     const squeezed = pressure < 2.2 ? 1.5 : 1;
-    if (Math.random() < appetite * confidence * squeezed * dt * 0.55) {
-      shoot(state, index);
+    if (Math.random() < appetite * confidence * squeezed * dt * 0.95) {
+      // Close in, a player places it; from distance they hit it. Good
+      // finishers curl more of them.
+      const finesseChance = range < 14 ? 0.35 + (carrier.shooting / 99) * 0.3 : 0.12;
+      const type: ShotType =
+        Math.random() < finesseChance ? 'finesse' : range > 22 ? 'power' : 'driven';
+      shoot(state, index, type);
       return;
     }
   }
@@ -951,6 +1096,34 @@ function pass(state: MatchState, from: number) {
   };
 }
 
+/**
+ * A clearance: distance and height over accuracy. Often finds a team-mate,
+ * often finds touch — which is exactly what makes it a clearance.
+ */
+function clear(state: MatchState, from: number) {
+  const player = state.players[from]!;
+  const dir = player.team === 0 ? 1 : -1;
+  const ownGoal = ownGoalX(player.team);
+
+  state.lastTouch = from;
+  state.passIntent = null;
+
+  // Deep inside their own area with nowhere to go, a defender concedes the
+  // corner on purpose rather than risk playing it across their own box.
+  if (Math.abs(player.x - ownGoal) < 13 && Math.random() < 0.3) {
+    const behind = Math.atan2(Math.sign(player.z || 1) * 12, -dir * 14);
+    strike(state.ball, behind, 16 + Math.random() * 8, 4, 0);
+    return;
+  }
+
+  // Otherwise upfield, angled toward the nearest touchline as often as not.
+  const wide = Math.random() < 0.55;
+  const towardZ = wide ? Math.sign(player.z || 1) * 34 : (Math.random() - 0.5) * 30;
+  const angle = Math.atan2(towardZ - player.z, dir * 45);
+
+  strike(state.ball, angle, 26 + Math.random() * 10, 7 + Math.random() * 3, 0);
+}
+
 /** A corner: hung into the box rather than played to feet. */
 function cross(state: MatchState, from: number) {
   const crosser = state.players[from]!;
@@ -975,7 +1148,7 @@ function cross(state: MatchState, from: number) {
   state.passIntent = null;
 }
 
-function shoot(state: MatchState, from: number) {
+function shoot(state: MatchState, from: number, type: ShotType = 'driven') {
   const shooter = state.players[from]!;
   shooter.shotCooldown = 1.1;
 
@@ -992,9 +1165,15 @@ function shoot(state: MatchState, from: number) {
   // geometry. Around a third of real shots hit the frame, and leaving that to
   // emerge from an angular spread put 90% of them on target — which turned the
   // keeper into a wall making twenty saves a game.
+  // Finesse trades power for placement; power does the reverse. Driven sits
+  // between them, which is why it is the default.
+  const placementBonus = type === 'finesse' ? 0.14 : type === 'power' ? -0.09 : 0;
   const onTargetChance = Math.max(
-    0.12,
-    Math.min(0.62, 0.26 + accuracy * 0.3 - Math.max(0, distance - 6) * 0.011),
+    0.08,
+    Math.min(
+      0.7,
+      0.26 + accuracy * 0.3 - Math.max(0, distance - 6) * 0.011 + placementBonus,
+    ),
   );
   const onTarget = Math.random() < onTargetChance;
 
@@ -1010,7 +1189,8 @@ function shoot(state: MatchState, from: number) {
   }
 
   const angle = Math.atan2(aimZ - shooter.z, dx);
-  const power = 24 + accuracy * 13;
+  const powerScale = type === 'finesse' ? 0.8 : type === 'power' ? 1.3 : 1;
+  const power = (24 + accuracy * 13) * powerScale;
 
   // A shot that is off target is as often lifted over as dragged wide.
   const loft = onTarget
@@ -1020,12 +1200,14 @@ function shoot(state: MatchState, from: number) {
       : Math.min(2.5, distance * 0.04);
 
   // Better finishers put more shape on it; the bend is what makes a struck
-  // ball look struck rather than launched.
-  const spin = (Math.random() - 0.5) * 2 * (14 + accuracy * 30);
+  // ball look struck rather than launched. A finesse shot is defined by it.
+  const spinScale = type === 'finesse' ? 2.4 : type === 'power' ? 0.5 : 1;
+  const spin = (Math.random() - 0.5) * 2 * (14 + accuracy * 30) * spinScale;
 
   strike(state.ball, angle, power, loft, spin);
   state.lastTouch = from;
   state.passIntent = null;
+  state.lastShot = { type, at: state.clock, team: shooter.team };
 }
 
 function checkGoal(state: MatchState) {

@@ -31,7 +31,9 @@ Everything is playable on a gamepad or a keyboard; no mouse is required.
 | Change tab | L1 / R1 | Q / E |
 | Restore defaults | △ / Y | R |
 | Pass | □ / X | J |
-| Shoot | △ / Y | K |
+| Shoot (driven) | △ / Y | K |
+| Finesse shot | R1 / RB + shoot | U + K |
+| Power shot | L1 / LB + shoot | O + K |
 | Sprint | R2 / RT | Shift |
 
 An untouched controller hands the ball back to the AI, so a match plays itself

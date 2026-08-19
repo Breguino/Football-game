@@ -177,7 +177,7 @@ export function judgeTackle(
   // A poor defender lunging fast is far likelier to catch the man.
   const clumsiness = 1 - defenderRating / 130;
   const recklessness = Math.min(1, closingSpeed / 9);
-  const foulChance = clumsiness * (0.10 + recklessness * 0.30);
+  const foulChance = clumsiness * (0.18 + recklessness * 0.45);
   if (random() > foulChance) return { foul: false, card: 'none' };
 
   // Most fouls are just fouls.

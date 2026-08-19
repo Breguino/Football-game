@@ -310,6 +310,19 @@ export function generateWorld(seed: string, options?: { clubsPerLeague?: number 
   return { seed, leagues, clubs, clubOrder };
 }
 
+/**
+ * The squad as it is handed to a match: the starting eleven in formation
+ * order, followed by the bench in descending quality.
+ */
+export function matchSquad(club: Club): Player[] {
+  const eleven = startingEleven(club);
+  const starting = new Set(eleven.map((p) => p.id));
+  const bench = club.squad
+    .filter((p) => !starting.has(p.id))
+    .sort((a, b) => b.overall - a.overall);
+  return [...eleven, ...bench];
+}
+
 /** The eleven a club would actually field, in formation order. */
 export function startingEleven(club: Club): Player[] {
   const shape: Position[] = ['GK', 'RB', 'CB', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'RW', 'ST', 'LW'];

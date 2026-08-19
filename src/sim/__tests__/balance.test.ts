@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createMatch, step, NO_INTENT } from '../match';
-import { generateWorld, startingEleven } from '@/world/generate';
+import { generateWorld, matchSquad } from '@/world/generate';
 
 /**
  * Balance regression.
@@ -26,10 +26,12 @@ function season() {
   let corners = 0;
   let fouls = 0;
   let restarts = 0;
+  let offsides = 0;
+  let subs = 0;
 
   for (let m = 0; m < MATCHES; m += 1) {
-    const home = startingEleven(world.clubs[ids[m % ids.length]!]!);
-    const away = startingEleven(world.clubs[ids[(m + 7) % ids.length]!]!);
+    const home = matchSquad(world.clubs[ids[m % ids.length]!]!);
+    const away = matchSquad(world.clubs[ids[(m + 7) % ids.length]!]!);
     const state = createMatch(home, away, { halfLength: 6 });
     for (let i = 0; i < 60 * 60 * 14; i += 1) {
       step(state, NO_INTENT);
@@ -41,6 +43,8 @@ function season() {
     awayShots += state.shots[1];
     corners += state.corners[0] + state.corners[1];
     fouls += state.fouls[0] + state.fouls[1];
+    offsides += state.offsides[0] + state.offsides[1];
+    subs += state.subsUsed[0] + state.subsUsed[1];
     restarts += state.events.filter((e) =>
       ['throwIn', 'corner', 'goalKick', 'freeKick', 'penalty'].includes(e.type),
     ).length;
@@ -59,6 +63,8 @@ function season() {
     homeShots,
     awayShots,
     cornersPerMatch: corners / MATCHES,
+    offsidesPerMatch: offsides / MATCHES,
+    subsPerMatch: subs / MATCHES,
     foulsPerMatch: fouls / MATCHES,
     restartsPerMatch: restarts / MATCHES,
   };
@@ -96,6 +102,18 @@ describe('match balance', () => {
 
   it('awards fouls', () => {
     expect(stats.foulsPerMatch).toBeGreaterThan(0.5);
+  });
+
+  it('calls offside', () => {
+    // Zero here means the off-ball model has stopped making runs beyond the
+    // last defender, which is what makes the law reachable at all.
+    expect(stats.offsidesPerMatch).toBeGreaterThan(0.2);
+    expect(stats.offsidesPerMatch).toBeLessThan(8);
+  });
+
+  it('makes substitutions', () => {
+    expect(stats.subsPerMatch).toBeGreaterThan(0.5);
+    expect(stats.subsPerMatch).toBeLessThanOrEqual(6);
   });
 
   it('makes the goalkeeper matter', () => {
