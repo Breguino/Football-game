@@ -56,6 +56,7 @@ export class BroadcastCamera {
   private shakeUntil = 0;
   private shakeAmount = 0;
   private elapsed = 0;
+  private cinematicStart: number | null = null;
 
   constructor(private settings: CameraSettings, aspect = 16 / 9) {
     const spec = PRESETS[settings.preset];
@@ -84,6 +85,46 @@ export class BroadcastCamera {
   /** Distance from the camera to whatever it is looking at, for the DOF pass. */
   get focusDistance(): number {
     return this.camera.position.distanceTo(this.lookAt);
+  }
+
+  /**
+   * Replay camera: low, close, and slowly arcing around the ball. Broadcast
+   * replays are shot from a different rig to the live feed, and matching that
+   * change of viewpoint is most of what makes a replay read as a replay.
+   */
+  updateCinematic(dt: number, ball: THREE.Vector3, progress: number) {
+    this.elapsed += dt;
+    if (this.cinematicStart === null) {
+      this.cinematicStart = Math.atan2(
+        this.camera.position.z - ball.z,
+        this.camera.position.x - ball.x,
+      );
+    }
+
+    // A quarter turn across the clip, so the arc is felt rather than noticed.
+    const angle = this.cinematicStart + progress * Math.PI * 0.5;
+    const radius = 26 - progress * 8;
+    const height = 6.5 - progress * 2.4;
+
+    this.desired.set(ball.x + Math.cos(angle) * radius, height, ball.z + Math.sin(angle) * radius);
+    const k = 1 - Math.exp(-dt / 0.18);
+    this.position.lerp(this.desired, k);
+    this.camera.position.copy(this.position);
+
+    this.lookAt.lerp(new THREE.Vector3(ball.x, Math.max(0.6, ball.y), ball.z), k);
+    this.camera.lookAt(this.lookAt);
+
+    // A tighter lens than the live feed.
+    if (this.camera.fov !== 34) {
+      this.camera.fov = 34;
+      this.camera.updateProjectionMatrix();
+    }
+  }
+
+  endCinematic() {
+    this.cinematicStart = null;
+    this.camera.fov = PRESETS[this.settings.preset].fov;
+    this.camera.updateProjectionMatrix();
   }
 
   update(dt: number, ball: THREE.Vector3, ballVelocity: THREE.Vector3) {

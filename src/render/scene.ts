@@ -4,6 +4,7 @@ import { createGradePass } from './grade';
 import { BroadcastCamera, type CameraSettings } from './camera';
 import { tokenRGB } from '@/ui/tokens/read';
 import type { MatchState } from '@/sim/match';
+import type { ReplayFrame } from '@/sim/replay';
 
 /**
  * Assembles the match renderer: pitch, stadium, floodlights, players, ball,
@@ -250,6 +251,57 @@ export class MatchScene {
     this.broadcast.shake(amount, seconds);
   }
 
+  /**
+   * Draws a recorded frame instead of live state: same pitch, same players,
+   * but a cinematic camera and no indicator. Used for goal replays.
+   */
+  renderReplay(frame: ReplayFrame, dt: number, elapsed: number, progress: number) {
+    const count = Math.floor(frame.players.length / 4);
+    for (let i = 0; i < count; i += 1) {
+      const mesh = this.players[i];
+      if (!mesh) continue;
+      const x = frame.players[i * 4] ?? 0;
+      const z = frame.players[i * 4 + 1] ?? 0;
+      const vx = frame.players[i * 4 + 2] ?? 0;
+      const vz = frame.players[i * 4 + 3] ?? 0;
+      mesh.visible = true;
+      mesh.position.set(x, PLAYER_HEIGHT / 2, z);
+      mesh.rotation.y = Math.atan2(vx, vz);
+      mesh.rotation.x = Math.min(0.2, Math.hypot(vx, vz) * 0.022);
+    }
+    // A replay is footage, not gameplay — the interface markers come off.
+    for (const indicator of this.indicators) indicator.visible = false;
+
+    this.ballPosition.set(frame.ballX, frame.ballY + 0.11, frame.ballZ);
+    this.ballVelocity.set(frame.ballVX, 0, frame.ballVZ);
+    this.ball.position.copy(this.ballPosition);
+    this.ballShadow.position.set(frame.ballX, 0.02, frame.ballZ);
+    this.ballShadow.scale.setScalar(1 + Math.max(0, frame.ballY) * 0.4);
+
+    this.broadcast.updateCinematic(dt, this.ballPosition, progress);
+    // A long lens wide open: replays sit shallower than live play.
+    this.grade.uniforms.uFocusDistance.value = this.broadcast.focusDistance;
+    this.grade.uniforms.uFocusRange.value = 7;
+    this.grade.uniforms.uTime.value = elapsed;
+
+    this.draw();
+  }
+
+  /** Restores the live-play depth of field after a replay. */
+  endReplay() {
+    this.grade.uniforms.uFocusRange.value = 14;
+    this.broadcast.endCinematic();
+  }
+
+  private draw() {
+    this.renderer.setRenderTarget(this.grade.target);
+    this.renderer.clear();
+    this.renderer.render(this.scene, this.broadcast.camera);
+
+    this.renderer.setRenderTarget(null);
+    this.renderer.render(this.grade.scene, this.grade.camera);
+  }
+
   render(state: MatchState, dt: number, elapsed: number) {
     // ---- Sync the scene to the simulation -------------------------------
     state.players.forEach((p, i) => {
@@ -291,12 +343,7 @@ export class MatchScene {
     this.grade.uniforms.uTime.value = elapsed;
 
     // ---- Draw ------------------------------------------------------------
-    this.renderer.setRenderTarget(this.grade.target);
-    this.renderer.clear();
-    this.renderer.render(this.scene, this.broadcast.camera);
-
-    this.renderer.setRenderTarget(null);
-    this.renderer.render(this.grade.scene, this.grade.camera);
+    this.draw();
   }
 
   dispose() {

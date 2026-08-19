@@ -36,6 +36,8 @@ export interface SimPlayer {
   skillMoves: number;
   weakFoot: number;
   preferredFoot: 'L' | 'R';
+  /** Seconds before this player can strike the ball again. */
+  shotCooldown: number;
 }
 
 export interface Ball {
@@ -75,6 +77,7 @@ export interface MatchState {
   lastTouch: number | null;
   possession: [number, number];
   shots: [number, number];
+  saves: [number, number];
   events: MatchEvent[];
   lastGoal: { team: 0 | 1; scorer: string; minute: number } | null;
 }
@@ -140,6 +143,7 @@ export function createMatch(
         skillMoves: player.skillMoves,
         weakFoot: player.weakFoot,
         preferredFoot: player.preferredFoot,
+        shotCooldown: 0,
       });
     });
   }
@@ -157,14 +161,20 @@ export function createMatch(
     lastTouch: null,
     possession: [0, 0],
     shots: [0, 0],
+    saves: [0, 0],
     events: [],
     lastGoal: null,
   };
 }
 
+/** The goal this team is attacking. Team 0 attacks +x. */
 function goalMouthX(team: 0 | 1): number {
-  // Team 0 attacks +x.
   return team === 0 ? HALF_L : -HALF_L;
+}
+
+/** The goal this team is defending — the opposite end. */
+function ownGoalX(team: 0 | 1): number {
+  return team === 0 ? -HALF_L : HALF_L;
 }
 
 function resetPositions(state: MatchState, kickingTeam: 0 | 1) {
@@ -194,6 +204,11 @@ function recover(state: MatchState, amount: number) {
   }
 }
 
+/** The first player of each eleven is that team's goalkeeper. */
+function isKeeper(state: MatchState, index: number): boolean {
+  return index % 11 === 0 && index < state.players.length;
+}
+
 /** Distance from a player to the ball, ignoring height. */
 function distanceToBall(p: SimPlayer, ball: Ball): number {
   return Math.hypot(p.x - ball.x, p.z - ball.z);
@@ -208,7 +223,7 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
     if (state.phaseTimer <= 0) {
       if (state.phase === 'goal') {
         const conceding = state.lastGoal?.team === 0 ? 1 : 0;
-        recover(state, 4);
+        recover(state, 4 * (720 / (state.halfLength * 2)));
         resetPositions(state, conceding);
         state.phase = 'live';
       } else if (state.phase === 'halftime') {
@@ -246,6 +261,14 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
   // ---- Player intent ------------------------------------------------------
   const controlled = state.players[state.controlledIndex];
 
+  // Whether the human is actually playing this tick. When they are not — an
+  // untouched controller, an AI-vs-AI match, a test — the controlled player
+  // must be driven by the same AI as everyone else. Otherwise winning the ball
+  // *demotes* that player to standing still, and the user's team can never
+  // advance it.
+  const userActing =
+    intent.shoot || intent.pass || Math.hypot(intent.moveX, intent.moveZ) > 0.05;
+
   if (intent.switchPlayer && controlled) {
     // Switch to the team-mate nearest the ball.
     let best = state.controlledIndex;
@@ -269,15 +292,54 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
     let ax = 0;
     let az = 0;
 
-    if (isControlled) {
+    if (isControlled && userActing) {
       ax = intent.moveX;
       az = intent.moveZ;
+    } else if (hasBall) {
+      // Carrying: drive at the opposing goal, drifting off the nearest
+      // defender rather than running straight through them.
+      const targetX = goalMouthX(p.team);
+      let dx = targetX - p.x;
+      let dz = -p.z * 0.35;
+      let closest = Infinity;
+      let evadeZ = 0;
+      for (const o of state.players) {
+        if (o.team === p.team) continue;
+        const gap = Math.hypot(o.x - p.x, o.z - p.z);
+        if (gap < closest) {
+          closest = gap;
+          evadeZ = p.z - o.z;
+        }
+      }
+      if (closest < 6) dz += Math.sign(evadeZ || 1) * (6 - closest) * 1.4;
+      const length = Math.hypot(dx, dz) || 1;
+      ax = dx / length;
+      az = dz / length;
+    } else if (isKeeper(state, i)) {
+      // The keeper holds the line and shuffles across with the ball, coming
+      // a few metres off it as the ball nears. Everything about whether a
+      // shot goes in follows from where they are standing.
+      const line = ownGoalX(p.team) * 0.985;
+      const advance = Math.max(0, 1 - Math.abs(ball.x - line) / 34) * 4.5;
+      const targetX = line - Math.sign(line) * advance;
+      const targetZ = Math.max(-GOAL_WIDTH, Math.min(GOAL_WIDTH, ball.z * 0.55));
+      const dx = targetX - p.x;
+      const dz = targetZ - p.z;
+      const length = Math.hypot(dx, dz) || 1;
+      const urgency = Math.min(1, length / 1.5);
+      ax = (dx / length) * urgency;
+      az = (dz / length) * urgency;
     } else {
       // Everyone else holds a shape that shifts with the ball, and the nearest
       // defender presses. This is not a tactics engine; it is enough structure
       // that the pitch never looks static.
       const attacking = owner?.team === p.team;
-      const shift = (ball.x - 0) * (attacking ? 0.32 : 0.24);
+      // The whole team slides with the ball; when in possession the forwards
+      // push on harder than the back line, so the shape stretches rather than
+      // shuffling sideways as a block.
+      const forwardness = (p.homeX * (p.team === 0 ? 1 : -1)) / (HALF_L * 0.92);
+      const push = attacking ? 0.3 + Math.max(0, forwardness) * 0.5 : 0.24;
+      const shift = ball.x * push;
       const targetX = p.homeX + shift;
       const targetZ = p.homeZ + (ball.z - p.homeZ) * 0.16;
 
@@ -316,8 +378,9 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
     // rather than one of them finishing fresh.
     const effort = Math.min(1, Math.hypot(p.vx, p.vz) / speed);
     const matchScale = 720 / (state.halfLength * 2);
-    const drain = (0.055 + effort * effort * (sprinting ? 1.1 : 0.55)) * matchScale;
+    const drain = (0.042 + effort * effort * (sprinting ? 0.78 : 0.39)) * matchScale;
     p.stamina = Math.max(0, p.stamina - drain * dt);
+    p.shotCooldown = Math.max(0, p.shotCooldown - dt);
 
     // Carry the ball at the feet.
     if (hasBall) {
@@ -332,18 +395,15 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
   }
 
   // ---- Actions ------------------------------------------------------------
-  if (owner && ball.owner === state.controlledIndex) {
-    if (intent.shoot) {
-      shoot(state, ball.owner);
-    } else if (intent.pass) {
-      pass(state, ball.owner);
-    }
-  } else if (owner && owner.team === 1 && ball.owner !== null) {
-    // Opposition decision-making: shoot when close, otherwise move it on.
-    const goalX = goalMouthX(owner.team);
-    const range = Math.abs(goalX - owner.x);
-    if (range < 22 && Math.random() < dt * 0.9) shoot(state, ball.owner);
-    else if (Math.random() < dt * 1.3) pass(state, ball.owner);
+  // Both sides share one decision path. The user overrides it only while they
+  // are actually playing; an untouched controller hands the ball back to the
+  // AI, which is what keeps an unattended match a match rather than a stalemate.
+  if (owner && ball.owner !== null) {
+    const userOnBall = ball.owner === state.controlledIndex && owner.team === 0;
+
+    if (userOnBall && intent.shoot) shoot(state, ball.owner);
+    else if (userOnBall && intent.pass) pass(state, ball.owner);
+    else if (!userOnBall || !userActing) decideOnBall(state, ball.owner, dt);
   }
 
   // ---- Loose ball ---------------------------------------------------------
@@ -404,6 +464,47 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
   return state;
 }
 
+/**
+ * What a player on the ball does next.
+ *
+ * Not a tactics engine — three questions in the order a footballer asks them:
+ * am I in a shooting position, am I under pressure, and is there a better
+ * option ahead of me.
+ */
+function decideOnBall(state: MatchState, index: number, dt: number) {
+  const carrier = state.players[index]!;
+  const goalX = goalMouthX(carrier.team);
+  const range = Math.hypot(goalX - carrier.x, -carrier.z);
+
+  // How close the nearest opponent is, which drives urgency.
+  let pressure = Infinity;
+  for (const p of state.players) {
+    if (p.team === carrier.team) continue;
+    pressure = Math.min(pressure, Math.hypot(p.x - carrier.x, p.z - carrier.z));
+  }
+
+  // Shooting: near-certain inside the box, tailing off to nothing past 30m.
+  // A player who has just struck the ball needs to reset before the next one;
+  // without this, a save that drops in the six-yard box draws a burst of
+  // point-blank shots from the same striker and the shot count runs away.
+  if (range < 30 && carrier.shotCooldown <= 0) {
+    // A flatter curve than pure proximity: real teams shoot from range too,
+    // and a mix weighted almost entirely to six-yard chances puts every shot
+    // on target and turns the keeper into a wall.
+    const appetite = (1 - range / 30) ** 0.8;
+    const confidence = 0.35 + (carrier.shooting / 99) * 0.65;
+    const squeezed = pressure < 2.2 ? 1.5 : 1;
+    if (Math.random() < appetite * confidence * squeezed * dt * 0.22) {
+      shoot(state, index);
+      return;
+    }
+  }
+
+  // Passing: constantly under pressure, occasionally in space to keep it moving.
+  const passUrge = pressure < 3 ? 2.6 : pressure < 7 ? 1.1 : 0.45;
+  if (Math.random() < passUrge * dt) pass(state, index);
+}
+
 function nearestToBall(state: MatchState, team: 0 | 1): number {
   let best = -1;
   let bestDistance = Infinity;
@@ -459,6 +560,8 @@ function pass(state: MatchState, from: number) {
 
 function shoot(state: MatchState, from: number) {
   const shooter = state.players[from]!;
+  shooter.shotCooldown = 1.1;
+
   const goalX = goalMouthX(shooter.team);
   const dx = goalX - shooter.x;
   const dz = -shooter.z;
@@ -466,18 +569,42 @@ function shoot(state: MatchState, from: number) {
 
   state.shots[shooter.team] += 1;
 
-  // Accuracy falls off with distance and rises with the shooting attribute.
   const accuracy = shooter.shooting / 99;
-  const spread = (1 - accuracy) * 0.16 + Math.min(0.2, distance * 0.0055);
-  const aimZ = (Math.random() - 0.5) * GOAL_WIDTH * 0.8;
-  const angle = Math.atan2(aimZ - shooter.z, dx) + (Math.random() - 0.5) * spread;
-  const power = 22 + accuracy * 12;
+
+  // Whether the shot is on target is decided outright rather than left to the
+  // geometry. Around a third of real shots hit the frame, and leaving that to
+  // emerge from an angular spread put 90% of them on target — which turned the
+  // keeper into a wall making twenty saves a game.
+  const onTargetChance = Math.max(
+    0.12,
+    Math.min(0.62, 0.26 + accuracy * 0.3 - Math.max(0, distance - 6) * 0.011),
+  );
+  const onTarget = Math.random() < onTargetChance;
+
+  // On target: somewhere inside the frame, better players nearer the corners.
+  // Off target: past a post or over the bar, by a plausible margin.
+  const half = GOAL_WIDTH / 2;
+  let aimZ: number;
+  if (onTarget) {
+    aimZ = (Math.random() - 0.5) * 2 * half * (0.55 + accuracy * 0.4);
+  } else {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    aimZ = side * (half + 0.6 + Math.random() * 4.5);
+  }
+
+  const angle = Math.atan2(aimZ - shooter.z, dx);
+  const power = 24 + accuracy * 13;
 
   state.ball.owner = null;
   state.lastTouch = from;
   state.ball.vx = Math.cos(angle) * power;
   state.ball.vz = Math.sin(angle) * power;
-  state.ball.vy = Math.min(4.5, distance * 0.055);
+  // A shot that is off target is as often lifted over as dragged wide.
+  state.ball.vy = onTarget
+    ? Math.min(2.2, distance * 0.03)
+    : Math.random() < 0.4
+      ? 5.5 + Math.random() * 3
+      : Math.min(2.5, distance * 0.04);
 }
 
 function checkGoal(state: MatchState) {
@@ -485,6 +612,30 @@ function checkGoal(state: MatchState) {
   if (Math.abs(ball.x) < HALF_L) return;
   if (Math.abs(ball.z) > GOAL_WIDTH / 2) return;
   if (ball.y > 2.44) return;
+
+  // The keeper defending this goal gets a chance first. Reach falls off with
+  // how far they have to move and how hard the ball is struck — which is what
+  // turns a shot count into a realistic conversion rate.
+  const defendingTeam: 0 | 1 = ball.x > 0 ? 1 : 0;
+  const keeperIndex = defendingTeam === 0 ? 0 : 11;
+  const keeper = state.players[keeperIndex];
+  if (keeper) {
+    const travel = Math.hypot(keeper.x - ball.x, keeper.z - ball.z);
+    const power = Math.hypot(ball.vx, ball.vz);
+    const reach = 1.9 + (keeper.defending / 99) * 3.2;
+    const hurry = Math.max(0.25, 1 - power / 40);
+    if (travel < reach * hurry * 2.6 && Math.random() < (1 - travel / (reach * 2.8)) * hurry * 2.4) {
+      // Saved. A keeper pushes the ball away from goal and wide, or holds it;
+      // either way the danger clears rather than sitting on the six-yard line.
+      ball.x = Math.sign(ball.x) * (HALF_L - 3.5);
+      ball.vx = -Math.sign(ball.x) * (6 + Math.random() * 10);
+      ball.vz = (Math.random() < 0.5 ? -1 : 1) * (9 + Math.random() * 11);
+      ball.vy = 2.2;
+      ball.owner = null;
+      state.saves[defendingTeam] += 1;
+      return;
+    }
+  }
 
   // The ball is nearly always loose when it crosses the line, so credit the
   // last touch rather than the (absent) owner.

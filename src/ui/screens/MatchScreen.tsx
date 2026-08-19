@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MatchScene, type SceneOptions, type TimeOfDay } from '@/render/scene';
 import { MatchHud } from '@/ui/hud/MatchHud';
+import { ReplayChrome, TeamSheet, Walkout } from '@/ui/hud/Presentation';
 import { useWorld } from '@/state/world';
 import { useSettings } from '@/state/settings';
 import { useNavigation } from '@/input/InputProvider';
 import { createMatch, step, TICK, type Intent, type MatchState } from '@/sim/match';
+import { ReplayBuffer, ReplayPlayer } from '@/sim/replay';
 import { startingEleven } from '@/world/generate';
 import { resolveKitClash } from '@/world/colour';
 import type { CameraPreset } from '@/render/camera';
@@ -16,7 +18,17 @@ import './match.css';
  * the HUD on top. The loop is deliberately split — the simulation advances in
  * fixed 1/60s ticks regardless of frame rate, so physics stays identical on a
  * 144Hz monitor and a struggling laptop.
+ *
+ * A presentation layer sits over the simulation and can pause it: the walkout
+ * and team sheet run before kickoff, and a goal cuts to a slow-motion replay
+ * before play restarts.
  */
+
+/** Where the presentation is, independently of what the simulation is doing. */
+type Stage = 'walkout' | 'teamsheet' | 'playing' | 'replay';
+
+const REPLAY_SECONDS = 4.5;
+const REPLAY_SPEED = 0.4;
 
 export function MatchScreen({ onExit }: { onExit: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -28,22 +40,20 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
   const home = world.clubs[userClubId]!;
   const awayClub = world.clubs[opponentClubId]!;
   // Fixtures resolve kit clashes before kickoff; so does this.
-  const away = { ...awayClub, colours: resolveKitClash(home.colours.primary, awayClub.colours) };
+  const away = useMemo(
+    () => ({ ...awayClub, colours: resolveKitClash(home.colours.primary, awayClub.colours) }),
+    [home.colours.primary, awayClub],
+  );
   const competition = world.leagues.find((l) => l.id === home.leagueId)?.name ?? 'Friendly';
 
-  // The simulation lives in a ref: it mutates 60 times a second and must not
-  // drive React renders. A sampled snapshot feeds the HUD instead.
-  const stateRef = useRef<MatchState | null>(null);
-  const intentRef = useRef<Intent>({
-    moveX: 0,
-    moveZ: 0,
-    pass: false,
-    shoot: false,
-    sprint: false,
-    switchPlayer: false,
-  });
+  const homeEleven = useMemo(() => startingEleven(home), [home]);
+  const awayEleven = useMemo(() => startingEleven(away), [away]);
+
+  const [stage, setStage] = useState<Stage>('walkout');
+  const stageRef = useRef<Stage>('walkout');
+  stageRef.current = stage;
+
   const [snapshot, setSnapshot] = useState<MatchState | null>(null);
-  const [ready, setReady] = useState(false);
 
   // Settings are read once at kickoff; changing them mid-match is not a thing.
   const optionsRef = useRef<SceneOptions>({
@@ -60,30 +70,52 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
     awayColours: away.colours,
   });
 
-  useNavigation((action: NavAction) => {
-    if (action === 'back') onExit();
-  });
+  const advance = useCallback(() => {
+    setStage((current) => (current === 'walkout' ? 'teamsheet' : 'playing'));
+  }, []);
+
+  useNavigation(
+    useCallback(
+      (action: NavAction) => {
+        if (action === 'back') onExit();
+        else if (action === 'confirm' && stageRef.current !== 'playing') advance();
+      },
+      [onExit, advance],
+    ),
+  );
+
+  // The walkout and team sheet run on a timer as well as on a button, so an
+  // unattended match still reaches kickoff.
+  useEffect(() => {
+    if (stage === 'walkout') {
+      const timer = window.setTimeout(advance, 5200);
+      return () => window.clearTimeout(timer);
+    }
+    if (stage === 'teamsheet') {
+      const timer = window.setTimeout(advance, 4600);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [stage, advance]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const state = createMatch(
-      startingEleven(home),
-      startingEleven(away),
-      { halfLength: Number(settingsValue('halfLength') ?? 6) },
-    );
-    stateRef.current = state;
+    const state = createMatch(homeEleven, awayEleven, {
+      halfLength: Number(settingsValue('halfLength') ?? 6),
+    });
 
     let scene: MatchScene;
     try {
       scene = new MatchScene(canvas, optionsRef.current);
     } catch (error) {
       console.error('[match] WebGL unavailable', error);
-      setReady(true);
       return;
     }
-    setReady(true);
+
+    const buffer = new ReplayBuffer();
+    let replay: ReplayPlayer | null = null;
 
     // ---- Input --------------------------------------------------------
     const held = new Set<string>();
@@ -135,6 +167,7 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
     let last = performance.now();
     let accumulator = 0;
     let sinceSample = 0;
+    let primed = false;
     let elapsed = 0;
     let previousGoals = state.score[0] + state.score[1];
 
@@ -147,31 +180,74 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
       const frameTime = Math.min(0.25, (now - last) / 1000);
       last = now;
       elapsed += frameTime;
-      accumulator += frameTime;
 
-      const raw = readIntent();
-      intentRef.current = raw;
+      const stageNow = stageRef.current;
 
-      while (accumulator >= TICK) {
-        const intent: Intent = {
-          ...raw,
-          pass: raw.pass && !passLatch,
-          shoot: raw.shoot && !shootLatch,
-          switchPlayer: raw.switchPlayer && !switchLatch,
-        };
-        passLatch = raw.pass;
-        shootLatch = raw.shoot;
-        switchLatch = raw.switchPlayer;
-
-        step(state, intent);
-        accumulator -= TICK;
+      // ---- Replay --------------------------------------------------
+      if (stageNow === 'replay' && replay) {
+        replay.advance(frameTime);
+        const current = replay.current();
+        if (current) scene.renderReplay(current, frameTime, elapsed, replay.progress);
+        if (replay.done) {
+          replay = null;
+          scene.endReplay();
+          buffer.clear();
+          stageRef.current = 'playing';
+          setStage('playing');
+        }
+        raf = requestAnimationFrame(frame);
+        return;
       }
 
-      // Punch the camera when a goal goes in.
+      // ---- Pre-match beats -----------------------------------------
+      // The walkout and team sheet cover the screen completely and nothing on
+      // the pitch is moving, so the scene is drawn once to prime it and then
+      // left alone. Redrawing behind an opaque card is pure waste, and it
+      // starves the presentation's own animations of the main thread at
+      // exactly the moment they need it.
+      if (stageNow === 'walkout' || stageNow === 'teamsheet') {
+        accumulator = 0;
+        if (!primed) {
+          primed = true;
+          scene.render(state, frameTime, elapsed);
+        }
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+
+      // The simulation is frozen until the walkout and team sheet are done.
+      if (stageNow === 'playing') {
+        accumulator += frameTime;
+        const raw = readIntent();
+
+        while (accumulator >= TICK) {
+          const intent: Intent = {
+            ...raw,
+            pass: raw.pass && !passLatch,
+            shoot: raw.shoot && !shootLatch,
+            switchPlayer: raw.switchPlayer && !switchLatch,
+          };
+          passLatch = raw.pass;
+          shootLatch = raw.shoot;
+          switchLatch = raw.switchPlayer;
+
+          step(state, intent);
+          accumulator -= TICK;
+        }
+
+        buffer.record(state, frameTime);
+      }
+
+      // A goal cuts to the replay, the way a broadcast does.
       const goals = state.score[0] + state.score[1];
       if (goals !== previousGoals) {
         previousGoals = goals;
         scene.shake(0.9, 0.5);
+        if (buffer.seconds > 1.5) {
+          replay = new ReplayPlayer(buffer.takeLast(REPLAY_SECONDS), REPLAY_SPEED);
+          stageRef.current = 'replay';
+          setStage('replay');
+        }
       }
 
       scene.render(state, frameTime, elapsed);
@@ -203,11 +279,13 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
   }, []);
 
   const on = (id: string) => settingsValue(id) === 'On';
+  const showHud = stage === 'playing' && snapshot;
 
   return (
     <div className="match">
       <canvas ref={canvasRef} className="match__canvas" />
-      {snapshot && (
+
+      {showHud && (
         <MatchHud
           state={snapshot}
           home={home}
@@ -221,7 +299,28 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
           onFinish={onExit}
         />
       )}
-      {!ready && <div className="match__loading">Walking out…</div>}
+
+      {stage === 'replay' && <ReplayChrome />}
+
+      {stage === 'walkout' && (
+        <Walkout
+          home={home}
+          away={away}
+          competition={competition}
+          venue={`${home.stadium.name} · ${home.stadium.capacity.toLocaleString('en-GB')}`}
+          onSkip={advance}
+        />
+      )}
+
+      {stage === 'teamsheet' && (
+        <TeamSheet
+          home={home}
+          away={away}
+          homeEleven={homeEleven}
+          awayEleven={awayEleven}
+          onSkip={advance}
+        />
+      )}
     </div>
   );
 }
