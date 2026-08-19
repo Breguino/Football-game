@@ -1,0 +1,36 @@
+{
+  "name": "boot-room-fc",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit --pretty",
+    "lint:tokens": "node scripts/lint-tokens.mjs",
+    "test": "vitest run",
+    "check": "npm run lint:tokens && npm run typecheck && vitest run",
+    "build:artifact": "node scripts/build-artifact.mjs",
+    "shots": "node scripts/shots.mjs",
+    "shot:match": "node scripts/shot-match.mjs",
+    "fonts": "node scripts/fetch-fonts.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.169.0",
+    "zustand": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.169.0",
+    "@vitejs/plugin-react": "^6.0.5",
+    "playwright": "^1.62.1",
+    "typescript": "^5.6.3",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.11"
+  }
+}

@@ -1,0 +1,235 @@
+/* ============================================================================
+   Squad screen — the generated world, made legible.
+   ============================================================================ */
+
+.squad {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  color: var(--fc-text);
+  animation: fc-push-in var(--push) var(--ease-push) both;
+}
+
+.squad__top {
+  display: flex;
+  align-items: center;
+  gap: calc(22px * var(--ui-scale));
+  padding: calc(44px * var(--ui-scale)) calc(var(--margin-x) * var(--ui-scale))
+    calc(22px * var(--ui-scale));
+}
+
+.squad__identity { flex: 1 1 auto; min-width: 0; }
+
+.squad__name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: calc(38px * var(--ui-scale));
+  line-height: 1;
+  transform: var(--display-slant);
+  transform-origin: left bottom;
+}
+
+.squad__meta {
+  margin: calc(9px * var(--ui-scale)) 0 0;
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  color: var(--fc-text-muted);
+}
+
+.squad__rating {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex: 0 0 auto;
+}
+
+.squad__ratingnum {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(48px * var(--ui-scale));
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.squad__ratinglabel {
+  font-size: calc(11px * var(--ui-scale));
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}
+
+.squad__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.62fr);
+  gap: calc(var(--gutter) * var(--ui-scale));
+  padding: 0 calc(var(--margin-x) * var(--ui-scale));
+  min-height: 0;
+}
+
+.squad__list {
+  overflow-y: auto;
+  padding-bottom: calc(36px * var(--ui-scale));
+  scrollbar-width: none;
+}
+
+.squad__list::-webkit-scrollbar { display: none; }
+
+.squad__benchhead { margin-top: calc(34px * var(--ui-scale)); }
+
+.squad__rowmeta {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(20px * var(--ui-scale));
+}
+
+.squad__pos {
+  min-width: calc(52px * var(--ui-scale));
+  padding: calc(3px * var(--ui-scale)) calc(9px * var(--ui-scale));
+  border-radius: var(--r-chip);
+  text-align: center;
+  font-size: calc(12.5px * var(--ui-scale));
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: var(--fc-hud-fill);
+  color: var(--fc-text-muted);
+}
+
+.squad__pos[data-line='gk'] { color: var(--fc-warn); }
+.squad__pos[data-line='def'] { color: var(--fc-stamina); }
+.squad__pos[data-line='mid'] { color: var(--fc-focus); }
+.squad__pos[data-line='att'] { color: var(--fc-positive); }
+
+.squad__ovr {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(23px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+  min-width: 2.4ch;
+  text-align: right;
+}
+
+/* ---- Detail card --------------------------------------------------------- */
+
+.squad__detail {
+  align-self: start;
+  animation: fc-push-in var(--push) var(--ease-push) both;
+}
+
+.squad__card {
+  background: var(--fc-panel);
+  border-radius: var(--r-panel);
+  padding: calc(30px * var(--ui-scale));
+  display: flex;
+  flex-direction: column;
+  gap: calc(24px * var(--ui-scale));
+}
+
+.squad__cardhead {
+  display: flex;
+  align-items: baseline;
+  gap: calc(16px * var(--ui-scale));
+}
+
+.squad__cardovr {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(64px * var(--ui-scale));
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+
+.squad__cardpos,
+.squad__cardnat {
+  font-weight: 700;
+  font-size: calc(15px * var(--ui-scale));
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}
+
+.squad__cardname { display: flex; flex-direction: column; }
+
+.squad__cardfirst {
+  font-size: calc(16px * var(--ui-scale));
+  color: var(--fc-text-muted);
+  font-weight: 400;
+}
+
+.squad__cardlast {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: calc(38px * var(--ui-scale));
+  line-height: 1;
+  transform: var(--display-slant);
+  transform-origin: left bottom;
+}
+
+.squad__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: calc(14px * var(--ui-scale)) calc(18px * var(--ui-scale));
+  margin: 0;
+  padding-top: calc(20px * var(--ui-scale));
+  border-top: 1px solid var(--fc-hairline);
+}
+
+.squad__stat { display: flex; align-items: baseline; gap: calc(10px * var(--ui-scale)); }
+
+.squad__stat dt {
+  font-size: calc(12px * var(--ui-scale));
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--fc-text-muted);
+  min-width: 3.4ch;
+}
+
+.squad__stat dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(24px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+}
+
+.squad__traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(10px * var(--ui-scale)) calc(26px * var(--ui-scale));
+  padding-top: calc(18px * var(--ui-scale));
+  border-top: 1px solid var(--fc-hairline);
+}
+
+.squad__trait {
+  display: flex;
+  flex-direction: column;
+  gap: calc(2px * var(--ui-scale));
+}
+
+.squad__trait span {
+  font-size: calc(11px * var(--ui-scale));
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}
+
+.squad__trait b {
+  font-weight: 700;
+  font-size: calc(15px * var(--ui-scale));
+  letter-spacing: 0.04em;
+}
+
+.squad__actions {
+  display: flex;
+  align-items: center;
+  gap: calc(26px * var(--ui-scale));
+  padding: calc(18px * var(--ui-scale)) calc(var(--margin-x) * var(--ui-scale))
+    calc(28px * var(--ui-scale));
+}
+
+:root[data-layout='phone'] .squad__body { grid-template-columns: minmax(0, 1fr); }
+:root[data-layout='phone'] .squad__detail { display: none; }

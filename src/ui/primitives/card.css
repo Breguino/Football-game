@@ -1,0 +1,355 @@
+/* ============================================================================
+   Player item card — PROMPT.md §4.5.
+
+   Portrait at 1 : 1.38, with the distinctive silhouette: a gentle convex
+   curve across the top shoulder and a more pronounced concave sweep at the
+   base. The shape is a clip-path so it holds at any size and never needs an
+   image.
+
+   The layout is split into two absolute zones rather than a stack of
+   percentages: an upper zone for the rating block and the figure, and a lower
+   zone for the name and stats. The lower zone stops above where the base
+   begins to taper, so the bottom row of stats can never end up inside the
+   sweep — which is exactly what a single run of percentages let happen.
+   ============================================================================ */
+
+.card {
+  --card-w: 260px;
+  /* Where the sides stop being parallel and the base begins to close. */
+  --card-taper: 88%;
+  position: relative;
+  width: calc(var(--card-w) * var(--ui-scale));
+  aspect-ratio: 1 / 1.38;
+  flex: 0 0 auto;
+  color: var(--card-ink);
+  font-family: var(--font-ui);
+  transform-style: preserve-3d;
+  transition: transform var(--push) var(--ease-push), filter var(--push) var(--ease-push);
+  text-align: left;
+}
+
+/* Bronze, silver, gold, and the near-black special printings. */
+.card[data-tier='bronze'] {
+  --card-dark: var(--item-bronze-dark);
+  --card-face: var(--item-bronze-face);
+  --card-light: var(--item-bronze-light);
+  --card-ink: var(--item-bronze-ink);
+}
+
+.card[data-tier='silver'] {
+  --card-dark: var(--item-silver-dark);
+  --card-face: var(--item-silver-face);
+  --card-light: var(--item-silver-light);
+  --card-ink: var(--item-silver-ink);
+}
+
+.card[data-tier='gold'] {
+  --card-dark: var(--item-gold-dark);
+  --card-face: var(--item-gold-face);
+  --card-light: var(--item-gold-light);
+  --card-ink: var(--item-gold-ink);
+}
+
+.card[data-edition='totw'],
+.card[data-edition='hero'] {
+  --card-dark: var(--item-special-dark);
+  --card-face: var(--item-special-face);
+  --card-light: var(--item-special-light);
+  --card-ink: var(--item-special-ink);
+}
+
+.card[data-edition='totw'] { --card-trim: var(--item-totw-trim); }
+.card[data-edition='hero'] { --card-trim: var(--item-hero-trim); }
+.card[data-edition='standard'] { --card-trim: var(--card-light); }
+
+/* The trim itself. A clip-path has no border, so the edge is drawn as an
+   inset shape sitting on top of the face. */
+.card:not([data-edition='standard']) .card__trim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--card-trim);
+  clip-path: polygon(
+    7% 0%, 93% 0%, 100% 5%, 100% var(--card-taper), 88% 93%, 50% 100%, 12% 93%,
+    0% var(--card-taper), 0% 5%,
+    /* and back out through the inner edge, leaving a hairline ring */
+    0% 5%, 1.4% 6.2%, 1.4% calc(var(--card-taper) - 0.6%), 12.9% 91.2%, 50% 97.8%,
+    87.1% 91.2%, 98.6% calc(var(--card-taper) - 0.6%), 98.6% 6.2%, 92.6% 1.7%,
+    7.4% 1.7%, 1.4% 6.2%, 0% 5%
+  );
+  opacity: 0.85;
+}
+
+/* ---------------------------------------------------------------------------
+   The silhouette. Convex across the shoulders, concave into the base.
+   --------------------------------------------------------------------------- */
+
+.card__body {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  clip-path: polygon(
+    7% 0%,
+    93% 0%,
+    100% 5%,
+    100% var(--card-taper),
+    88% 93%,
+    50% 100%,
+    12% 93%,
+    0% var(--card-taper),
+    0% 5%
+  );
+  background: linear-gradient(
+    160deg,
+    var(--card-light) 0%,
+    var(--card-face) 26%,
+    var(--card-dark) 54%,
+    var(--card-face) 78%,
+    var(--card-light) 100%
+  );
+  filter: drop-shadow(0 6px 18px var(--fc-hud-shadow));
+  transition: filter var(--snap) var(--ease-snap);
+}
+
+/* A scale of 1.045 is invisible in a grid of busy cards, so focus reads as a
+   glow that follows the silhouette — a border cannot, behind a clip-path. */
+.card[data-focused='true'] .card__body {
+  filter: drop-shadow(0 6px 18px var(--fc-hud-shadow))
+    drop-shadow(0 0 calc(3px * var(--ui-scale)) var(--fc-focus))
+    drop-shadow(0 0 calc(14px * var(--ui-scale)) var(--fc-focus-soft));
+}
+
+/* A rare printing gets the sunray fan behind the figure. It is confined to
+   the upper half — a fan running under the stat grid is texture, not light. */
+.card[data-rare='true'] .card__rays {
+  position: absolute;
+  inset: -34% -12% 44%;
+  background: repeating-conic-gradient(
+    from 202deg at 50% 96%,
+    var(--card-light) 0deg 4deg,
+    transparent 4deg 11deg
+  );
+  opacity: 0.34;
+  mix-blend-mode: soft-light;
+  /* token-exempt: a mask paints nothing — these are alpha stops, not colour. */
+  mask-image: linear-gradient(to bottom, rgb(0 0 0) 62%, rgb(0 0 0 / 0) 100%);
+}
+
+/* Special editions carry raked diagonal texture instead, across the whole face. */
+.card[data-edition='totw'] .card__rays,
+.card[data-edition='hero'] .card__rays {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    118deg,
+    var(--card-light) 0px,
+    var(--card-light) 1px,
+    transparent 1px,
+    transparent 9px
+  );
+  opacity: 0.5;
+  mix-blend-mode: normal;
+}
+
+/* ---------------------------------------------------------------------------
+   The figure. There are no player photographs in a generated world, so the
+   portrait is the shirt itself — kit colours, number, crest. Drawn, not
+   missing.
+   --------------------------------------------------------------------------- */
+
+.card__figure {
+  position: absolute;
+  left: 50%;
+  top: 6%;
+  width: 58%;
+  transform: translateX(-36%);
+  filter: drop-shadow(0 4px 10px var(--fc-scrim));
+}
+
+/* ---------------------------------------------------------------------------
+   Rating block, top left.
+   --------------------------------------------------------------------------- */
+
+.card__meta {
+  position: absolute;
+  left: 7.5%;
+  top: 7%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(1px * var(--ui-scale));
+  line-height: 1;
+}
+
+.card__rating {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(var(--card-w) * 0.185 * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.card__position {
+  font-weight: 700;
+  font-size: calc(var(--card-w) * 0.062 * var(--ui-scale));
+  letter-spacing: 0.1em;
+}
+
+.card__glyphs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(6px * var(--ui-scale));
+  margin-top: calc(7px * var(--ui-scale));
+  padding-top: calc(7px * var(--ui-scale));
+  border-top: 1px solid var(--card-ink);
+  width: 100%;
+  opacity: 0.9;
+}
+
+.card__nation {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(var(--card-w) * 0.052 * var(--ui-scale));
+  letter-spacing: 0.08em;
+}
+
+.card__crest { display: block; line-height: 0; }
+
+/* ---------------------------------------------------------------------------
+   Name band and stat grid — one zone, ending clear of the taper.
+   --------------------------------------------------------------------------- */
+
+.card__lower {
+  position: absolute;
+  left: 9%;
+  right: 9%;
+  top: 53%;
+  bottom: calc(100% - var(--card-taper) + 2%);
+  display: flex;
+  flex-direction: column;
+  gap: calc(5px * var(--ui-scale));
+}
+
+/* A special edition prints its name along the base, so the grid gives up the
+   room for it rather than overlapping it. */
+.card:not([data-edition='standard']) .card__lower {
+  bottom: calc(100% - var(--card-taper) + 6%);
+}
+
+.card__name {
+  flex: 0 0 auto;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  /* Long surnames are common in a generated world, so the name shrinks to fit
+     rather than truncating a player's identity to an ellipsis. */
+  font-size: clamp(
+    calc(var(--card-w) * 0.062 * var(--ui-scale)),
+    calc(var(--card-w) * 0.98 / max(var(--name-len, 8), 8) * var(--ui-scale)),
+    calc(var(--card-w) * 0.105 * var(--ui-scale))
+  );
+  line-height: 1.05;
+  letter-spacing: -0.005em;
+  transform: var(--display-slant);
+  padding-bottom: calc(6px * var(--ui-scale));
+  border-bottom: 1px solid var(--card-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  /* The figure bleeds behind the name, so the text needs its own ground. */
+  text-shadow: 0 calc(1px * var(--ui-scale)) calc(3px * var(--ui-scale)) var(--fc-hud-shadow);
+}
+
+.card__stats {
+  flex: 1 1 auto;
+  /* Without this a flex item refuses to shrink below its content height and
+     the grid silently spills out of the zone into the taper. */
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(3, 1fr);
+  align-content: stretch;
+  gap: 0 calc(12px * var(--ui-scale));
+  padding: 0 calc(6px * var(--ui-scale));
+}
+
+.card__stat {
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  gap: calc(6px * var(--ui-scale));
+}
+
+.card__stat b {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(var(--card-w) * 0.074 * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  min-width: 2.2ch;
+}
+
+.card__stat span {
+  font-weight: 700;
+  font-size: calc(var(--card-w) * 0.05 * var(--ui-scale));
+  letter-spacing: 0.06em;
+  line-height: 1;
+  opacity: 0.82;
+}
+
+/* Special editions name themselves along the base, inside the taper. */
+.card__edition {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 5%;
+  text-align: center;
+  font-weight: 700;
+  font-size: calc(var(--card-w) * 0.04 * var(--ui-scale));
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--card-trim);
+}
+
+/* ---------------------------------------------------------------------------
+   Focus: tilt toward the pointer, and sweep a specular highlight across.
+   --------------------------------------------------------------------------- */
+
+.card__shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    108deg,
+    transparent 32%,
+    var(--card-shine) 47%,
+    transparent 62%
+  );
+  background-size: 220% 100%;
+  background-position: 50% 0;
+  opacity: 0;
+  transition: opacity var(--snap) var(--ease-snap);
+}
+
+.card[data-focused='true'] {
+  transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))
+    scale(1.045);
+  filter: brightness(1.06);
+  z-index: 2;
+}
+
+.card[data-focused='true'] .card__shine {
+  opacity: 1;
+  animation: card-shine 900ms var(--ease-push) 1;
+}
+
+@keyframes card-shine {
+  from { background-position: -140% 0; }
+  to { background-position: 140% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card[data-focused='true'] { transform: scale(1.02); }
+  .card[data-focused='true'] .card__shine { animation: none; }
+}

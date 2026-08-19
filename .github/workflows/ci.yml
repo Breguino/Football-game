@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push supersedes an in-flight run on the same branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Playwright is only used by the local screenshot scripts, never in CI, so
+  # there is no reason to spend a browser download on every run.
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+
+jobs:
+  check:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Every colour in the interface must resolve through theme.css.
+      - name: Token lint
+        run: npm run lint:tokens
+
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Tests
+        run: npx vitest run
+
+      - name: Build
+        run: npm run build

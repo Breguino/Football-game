@@ -1,0 +1,303 @@
+/* ============================================================================
+   Main hub — PROMPT.md §4.3. Tabbed, rail-based, tiles on the void.
+   ============================================================================ */
+
+.hub {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: grid;
+  /* Four rows, not three: the tab nav and the rail body are separate children
+     (the wrapper around them is display:contents). With three, the 1fr landed
+     on the nav instead of the body — invisible on a desktop, where there is
+     spare height for it to soak up, and on a phone it collapsed the nav to six
+     pixels and the tabs spilled out over the masthead. */
+  grid-template-rows: auto auto 1fr auto;
+  color: var(--fc-text);
+  animation: fc-push-in var(--push) var(--ease-push) both;
+}
+
+/* ---- Masthead ------------------------------------------------------------ */
+
+.hub__top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: calc(32px * var(--ui-scale));
+  padding: calc(46px * var(--ui-scale)) calc(var(--margin-x) * var(--ui-scale))
+    calc(16px * var(--ui-scale));
+}
+
+.hub__brand {
+  display: flex;
+  align-items: center;
+  gap: calc(18px * var(--ui-scale));
+  flex: 0 0 auto;
+}
+
+.hub__wordmark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: calc(30px * var(--ui-scale));
+  letter-spacing: -0.01em;
+  transform: var(--display-slant);
+  transform-origin: left bottom;
+  color: var(--fc-text);
+  line-height: 1;
+}
+
+.hub__identity {
+  display: flex;
+  flex-direction: column;
+  gap: calc(2px * var(--ui-scale));
+  line-height: 1.2;
+}
+
+.hub__club {
+  font-weight: 700;
+  font-size: calc(15px * var(--ui-scale));
+  letter-spacing: 0.03em;
+}
+
+.hub__league {
+  font-size: calc(12.5px * var(--ui-scale));
+  color: var(--fc-text-muted);
+}
+
+.hub__account {
+  display: flex;
+  align-items: center;
+  gap: calc(22px * var(--ui-scale));
+  flex: 0 0 auto;
+}
+
+.hub__coins {
+  display: flex;
+  align-items: baseline;
+  gap: calc(7px * var(--ui-scale));
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(19px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+}
+
+.hub__coins small {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: calc(11px * var(--ui-scale));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}
+
+/* ---- Tabs ---------------------------------------------------------------- */
+
+.hub__tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: calc(34px * var(--ui-scale));
+  padding: 0 calc(var(--margin-x) * var(--ui-scale)) calc(6px * var(--ui-scale));
+}
+
+.hub__bumpers {
+  display: flex;
+  gap: calc(8px * var(--ui-scale));
+  margin-right: calc(6px * var(--ui-scale));
+  padding-bottom: calc(3px * var(--ui-scale));
+}
+
+.hub__tab {
+  position: relative;
+  font-size: calc(var(--fs-tab) * var(--ui-scale));
+  font-weight: 400;
+  color: var(--fc-text-muted);
+  padding-bottom: calc(10px * var(--ui-scale));
+  transition: color var(--snap) var(--ease-snap);
+  flex: 0 0 auto;
+}
+
+.hub__tab[data-active='true'] {
+  color: var(--fc-text);
+  font-weight: 700;
+}
+
+/* The active tab is underscored by the iridescence rather than a plain rule. */
+.hub__tab[data-active='true']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(3px * var(--ui-scale));
+  border-radius: var(--r-pill);
+  background: var(--fc-iridescent);
+  background-size: 220% 100%;
+  background-position: 50% 0;
+  animation: fc-sweep var(--sweep) linear 1 both;
+}
+
+/* ---- Rails --------------------------------------------------------------- */
+
+.hub__body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: calc(20px * var(--ui-scale)) 0 calc(30px * var(--ui-scale));
+  scrollbar-width: none;
+}
+
+.hub__body::-webkit-scrollbar { display: none; }
+
+.hub__rail + .hub__rail { margin-top: calc(38px * var(--ui-scale)); }
+
+.hub__railhead {
+  display: flex;
+  align-items: baseline;
+  gap: calc(14px * var(--ui-scale));
+  padding: 0 calc(var(--margin-x) * var(--ui-scale)) calc(14px * var(--ui-scale));
+}
+
+.hub__railtitle {
+  font-weight: 700;
+  font-size: calc(var(--fs-section) * var(--ui-scale));
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hub__railnote {
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  color: var(--fc-text-muted);
+}
+
+.hub__tiles {
+  display: flex;
+  gap: calc(20px * var(--ui-scale));
+  padding: calc(10px * var(--ui-scale)) calc(var(--margin-x) * var(--ui-scale));
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.hub__tiles::-webkit-scrollbar { display: none; }
+
+/* ---- Tile ---------------------------------------------------------------- */
+
+.tile {
+  position: relative;
+  flex: 0 0 auto;
+  width: calc(var(--tile-w, 336px) * var(--ui-scale));
+  height: calc(212px * var(--ui-scale));
+  border-radius: var(--r-panel);
+  overflow: hidden;
+  background: var(--fc-bg-raised);
+  border: var(--border-focus) solid transparent;
+  text-align: left;
+  transition:
+    transform var(--snap) var(--ease-snap),
+    filter var(--snap) var(--ease-snap),
+    border-color var(--snap) var(--ease-snap);
+}
+
+.tile__art {
+  position: absolute;
+  inset: 0;
+  transition: transform var(--push) var(--ease-push);
+}
+
+.tile__scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    var(--fc-backdrop-clear) 34%,
+    var(--fc-scrim) 78%,
+    var(--fc-tile-foot) 100%
+  );
+}
+
+.tile__copy {
+  position: absolute;
+  left: calc(22px * var(--ui-scale));
+  right: calc(22px * var(--ui-scale));
+  bottom: calc(18px * var(--ui-scale));
+  display: flex;
+  flex-direction: column;
+  gap: calc(5px * var(--ui-scale));
+}
+
+.tile__name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: calc(27px * var(--ui-scale));
+  line-height: 1;
+  letter-spacing: -0.005em;
+  transform: var(--display-slant);
+  transform-origin: left bottom;
+  color: var(--fc-text);
+}
+
+.tile__note {
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  color: var(--fc-text-body);
+}
+
+.tile__badge {
+  position: absolute;
+  top: calc(16px * var(--ui-scale));
+  left: calc(16px * var(--ui-scale));
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6px * var(--ui-scale));
+  padding: calc(5px * var(--ui-scale)) calc(10px * var(--ui-scale));
+  border-radius: var(--r-chip);
+  background: var(--fc-hud-fill);
+  font-size: calc(10.5px * var(--ui-scale));
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fc-text);
+}
+
+.tile__badge[data-tone='live'] { color: var(--fc-positive); }
+.tile__badge[data-tone='soon'] { color: var(--fc-warn); }
+
+.tile[data-focused='true'] {
+  transform: scale(1.03);
+  filter: brightness(1.08);
+  border-color: var(--fc-focus);
+}
+
+.tile[data-focused='true'] .tile__art { transform: translateX(calc(-6px * var(--ui-scale))) scale(1.06); }
+
+.tile__leak {
+  position: absolute;
+  left: calc(10px * var(--ui-scale));
+  right: calc(10px * var(--ui-scale));
+  bottom: calc(-3px * var(--ui-scale));
+  height: calc(7px * var(--ui-scale));
+  border-radius: var(--r-pill);
+  background: var(--fc-iridescent);
+  background-size: 220% 100%;
+  background-position: 50% 0;
+  filter: blur(calc(4px * var(--ui-scale)));
+  animation: fc-sweep var(--sweep) linear 1 both;
+  pointer-events: none;
+}
+
+/* ---- Action bar ---------------------------------------------------------- */
+
+.hub__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(24px * var(--ui-scale));
+  padding: calc(16px * var(--ui-scale)) calc(var(--margin-x) * var(--ui-scale))
+    calc(28px * var(--ui-scale));
+}
+
+.hub__actions-left,
+.hub__actions-right {
+  display: flex;
+  align-items: center;
+  gap: calc(26px * var(--ui-scale));
+}

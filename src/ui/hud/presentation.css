@@ -1,0 +1,267 @@
+/* ============================================================================
+   Pre-kickoff presentation — PROMPT.md §4.4.
+   ============================================================================ */
+
+.pres {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--fc-brand-ink);
+}
+
+/* The container paints immediately and never animates. Content that is
+   invisible until an animation runs is content that is invisible whenever the
+   animation does not run — a stalled first frame, a busy main thread, a
+   browser that throttles background timelines. The entrance belongs on the
+   contents, over a card that is already there. */
+
+.pres__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 50% 40%, var(--fc-backdrop-clear) 0%, var(--fc-scrim) 68%, var(--fc-void) 100%);
+}
+
+/* The brand surface: aurora blobs on near-black navy. */
+.pres__aurora {
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(closest-side, var(--fc-aurora-1) 0%, transparent 100%) 12% 22% / 58% 58% no-repeat,
+    radial-gradient(closest-side, var(--fc-aurora-2) 0%, transparent 100%) 84% 16% / 52% 52% no-repeat,
+    radial-gradient(closest-side, var(--fc-aurora-3) 0%, transparent 100%) 70% 82% / 64% 64% no-repeat,
+    radial-gradient(closest-side, var(--fc-aurora-4) 0%, transparent 100%) 26% 88% / 46% 46% no-repeat;
+  opacity: 0.34;
+  filter: blur(90px);
+}
+
+.pres__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(22px, 3vw, 44px);
+  padding: 0 clamp(24px, 5vw, 80px);
+  max-width: 1400px;
+  width: 100%;
+}
+
+.pres__body--wide { max-width: 1560px; }
+
+.pres__eyebrow {
+  margin: 0;
+  font-weight: 500;
+  font-size: clamp(11px, 0.9vw, 14px);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--fc-focus);
+}
+
+.pres__venue {
+  margin: 0;
+  font-size: clamp(13px, 1vw, 16px);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}
+
+.pres__skip {
+  position: absolute;
+  right: clamp(24px, 4vw, 64px);
+  bottom: clamp(24px, 4vw, 56px);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--fc-text);
+  font-size: clamp(12px, 0.95vw, 15px);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  pointer-events: auto;
+  opacity: 0.82;
+  transition: opacity var(--snap) var(--ease-snap);
+}
+
+.pres__skip:hover,
+.pres__skip:focus-visible { opacity: 1; }
+
+/* ---- Walkout ------------------------------------------------------------- */
+
+.walkout__fixture {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(28px, 5vw, 96px);
+  width: 100%;
+}
+
+.walkout__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(14px, 1.6vw, 24px);
+  flex: 1 1 0;
+  min-width: 0;
+  animation: walkout-in 620ms var(--ease-push) both;
+}
+
+.walkout__side--away { animation-delay: 140ms; }
+
+@keyframes walkout-in {
+  from { opacity: 0; transform: translateY(26px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.walkout__club {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: clamp(22px, 3vw, 46px);
+  line-height: 1;
+  text-align: center;
+  transform: var(--display-slant);
+  color: var(--fc-text);
+  text-wrap: balance;
+}
+
+.walkout__versus {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: clamp(20px, 2.4vw, 38px);
+  color: var(--fc-text-muted);
+  transform: var(--display-slant);
+  flex: 0 0 auto;
+}
+
+/* ---- Team sheet ---------------------------------------------------------- */
+
+.sheet {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: clamp(20px, 3vw, 56px);
+  width: 100%;
+  align-items: start;
+}
+
+.sheet__spine {
+  width: 1px;
+  align-self: stretch;
+  background: var(--fc-hairline);
+}
+
+.sheet__col {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 1.6vw, 22px);
+  min-width: 0;
+  animation: fc-push-in var(--push) var(--ease-push) both;
+}
+
+.sheet__col[data-align='right'] { animation-delay: 90ms; }
+
+.sheet__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.sheet__col[data-align='right'] .sheet__head { flex-direction: row-reverse; }
+
+.sheet__title { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.sheet__col[data-align='right'] .sheet__title { align-items: flex-end; }
+
+.sheet__club {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: clamp(17px, 1.7vw, 27px);
+  line-height: 1;
+  transform: var(--display-slant);
+}
+
+.sheet__formation {
+  font-size: clamp(11px, 0.82vw, 13px);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}
+
+.sheet__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet__row {
+  display: grid;
+  grid-template-columns: 3ch 1fr 4ch 3ch;
+  align-items: center;
+  gap: clamp(8px, 1vw, 16px);
+  padding: clamp(5px, 0.6vw, 9px) 0;
+  border-bottom: 1px solid var(--fc-hairline);
+}
+
+.sheet__col[data-align='right'] .sheet__row {
+  grid-template-columns: 3ch 4ch 1fr 3ch;
+}
+
+.sheet__col[data-align='right'] .sheet__name { text-align: right; }
+.sheet__col[data-align='right'] .sheet__number { text-align: right; }
+.sheet__rating--lead { text-align: left; }
+
+.sheet__number {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: clamp(13px, 1vw, 17px);
+  color: var(--fc-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet__name {
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: clamp(12px, 1vw, 17px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet__nation {
+  font-size: clamp(9px, 0.72vw, 12px);
+  letter-spacing: 0.1em;
+  color: var(--fc-text-dim);
+}
+
+.sheet__rating {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: clamp(13px, 1.05vw, 18px);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+:root:not([data-layout='wide']) .sheet { grid-template-columns: 1fr; }
+:root:not([data-layout='wide']) .sheet__spine { display: none; }
+
+/* ---- Replay chrome ------------------------------------------------------- */
+
+.replay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  animation: letterbox-in 260ms var(--ease-push) both;
+}
+
+@keyframes letterbox-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

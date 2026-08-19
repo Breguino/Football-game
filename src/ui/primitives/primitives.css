@@ -1,0 +1,298 @@
+/* ============================================================================
+   Primitives. Every colour here resolves through theme.css.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   FocusRow — PROMPT.md §3.6. The atom of the whole interface.
+   Labels whisper, values shout; focus is a light leak, not a fill.
+   --------------------------------------------------------------------------- */
+
+.fc-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: calc(24px * var(--ui-scale));
+  min-height: calc(var(--row-h) * var(--ui-scale));
+  padding: 0 calc(26px * var(--ui-scale));
+  width: 100%;
+  text-align: left;
+  color: var(--fc-text);
+  border: var(--border-focus) solid transparent;
+  border-radius: var(--r-row);
+  background: transparent;
+  transition: background var(--snap) var(--ease-snap);
+}
+
+/* The hairline lives on a child so it is not clipped by the focus radius. */
+.fc-row__rule {
+  position: absolute;
+  left: calc(26px * var(--ui-scale));
+  right: calc(26px * var(--ui-scale));
+  bottom: 0;
+  height: 1px;
+  background: var(--fc-hairline);
+  transition: opacity var(--snap) var(--ease-snap);
+}
+
+.fc-row[data-focused='true'] {
+  background: var(--fc-row-focus);
+  border-color: var(--fc-focus);
+  box-shadow: 0 0 0 1px var(--fc-focus-soft);
+}
+
+.fc-row[data-focused='true'] .fc-row__rule { opacity: 0; }
+
+.fc-row[data-disabled='true'] { cursor: default; }
+.fc-row[data-disabled='true'] .fc-row__label,
+.fc-row[data-disabled='true'] .fc-row__value { color: var(--fc-text-dim); }
+
+.fc-row__label {
+  font-weight: 400;
+  font-size: calc(var(--fs-label) * var(--ui-scale));
+  line-height: 1.2;
+  transition: font-weight var(--snap) var(--ease-snap);
+}
+
+.fc-row[data-focused='true'] .fc-row__label { font-weight: 700; }
+
+.fc-row__value {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(14px * var(--ui-scale));
+  font-weight: 700;
+  font-size: calc(var(--fs-value) * var(--ui-scale));
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* The light leak. Rendered as real elements, not pseudo-elements, so React can
+   remount them on every focus land and the sweep replays. */
+.fc-leak {
+  position: absolute;
+  left: calc(10px * var(--ui-scale));
+  right: calc(10px * var(--ui-scale));
+  height: calc(7px * var(--ui-scale));
+  border-radius: var(--r-pill);
+  background: var(--fc-iridescent);
+  background-size: 220% 100%;
+  /* Rests mid-gradient — white through warm gold — which is where the
+     reference sits once the sweep has passed. */
+  background-position: 50% 0;
+  filter: blur(calc(4px * var(--ui-scale)));
+  opacity: 0.9;
+  pointer-events: none;
+  animation: fc-sweep var(--sweep) linear 1 both;
+}
+
+.fc-leak--top { top: calc(-4px * var(--ui-scale)); }
+.fc-leak--bottom { bottom: calc(-4px * var(--ui-scale)); }
+
+/* ---- Cycler: ◀ VALUE ▶ --------------------------------------------------- */
+
+.fc-cycler {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(14px * var(--ui-scale));
+}
+
+.fc-cycler__arrow {
+  font-style: normal;
+  font-size: calc(13px * var(--ui-scale));
+  color: var(--fc-text-muted);
+  transition: color var(--snap) var(--ease-snap), transform var(--snap) var(--ease-snap);
+}
+
+.fc-row[data-focused='true'] .fc-cycler__arrow { color: var(--fc-text); }
+.fc-cycler__arrow[data-nudge='true'] { transform: scale(1.35); color: var(--fc-focus); }
+
+/* ---- Slider -------------------------------------------------------------- */
+
+.fc-slider {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(18px * var(--ui-scale));
+}
+
+.fc-slider__track {
+  position: relative;
+  width: calc(340px * var(--ui-scale));
+  max-width: 34vw;
+  height: calc(4px * var(--ui-scale));
+  border-radius: var(--r-pill);
+  background: var(--fc-track-rest);
+}
+
+.fc-slider__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: var(--r-pill);
+  background: var(--fc-track-fill);
+  transition: width var(--snap) var(--ease-snap);
+}
+
+.fc-slider__knob {
+  position: absolute;
+  top: 50%;
+  width: calc(14px * var(--ui-scale));
+  height: calc(14px * var(--ui-scale));
+  border-radius: 50%;
+  background: var(--fc-text);
+  transform: translate(-50%, -50%);
+  transition: left var(--snap) var(--ease-snap);
+}
+
+.fc-slider__num {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: calc(20px * var(--ui-scale));
+  min-width: 2.6ch;
+  text-align: right;
+}
+
+/* ---------------------------------------------------------------------------
+   Panel — the detail card that floats on the void.
+   --------------------------------------------------------------------------- */
+
+.fc-panel {
+  background: var(--fc-panel);
+  border-radius: var(--r-panel);
+  padding: calc(30px * var(--ui-scale));
+  display: flex;
+  flex-direction: column;
+  gap: calc(18px * var(--ui-scale));
+  min-width: 0;
+}
+
+.fc-panel--alt { background: var(--fc-panel-alt); }
+
+.fc-panel__title {
+  font-weight: 700;
+  font-size: calc(var(--fs-value) * var(--ui-scale));
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fc-text);
+}
+
+.fc-panel__body {
+  font-size: calc(var(--fs-body) * var(--ui-scale));
+  line-height: 1.5;
+  color: var(--fc-text-body);
+  max-width: 46ch;
+}
+
+.fc-panel__preview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: calc(12px * var(--ui-scale));
+  overflow: hidden;
+  background: var(--fc-bg-raised);
+}
+
+/* ---------------------------------------------------------------------------
+   Glyph — controller buttons and keycaps.
+   --------------------------------------------------------------------------- */
+
+.fc-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.fc-glyph--round {
+  width: calc(26px * var(--ui-scale));
+  height: calc(26px * var(--ui-scale));
+  border-radius: 50%;
+  border: calc(1.5px * var(--ui-scale)) solid var(--fc-text);
+  font-size: calc(13px * var(--ui-scale));
+  color: var(--fc-text);
+}
+
+.fc-glyph--cap {
+  padding: calc(4px * var(--ui-scale)) calc(9px * var(--ui-scale));
+  border-radius: calc(5px * var(--ui-scale));
+  background: var(--fc-keycap);
+  color: var(--fc-text-invert);
+  font-size: calc(12px * var(--ui-scale));
+  letter-spacing: 0.03em;
+}
+
+.fc-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10px * var(--ui-scale));
+  color: var(--fc-text);
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  font-weight: 500;
+}
+
+.fc-hint__label { color: var(--fc-text); }
+
+/* A hint that is also the control. On a desktop it stays a caption with a
+   pressable area; on a phone it is the only way some actions exist. */
+.fc-hint--pressable {
+  font-family: var(--font-ui);
+  border-radius: var(--r-pill);
+  padding: calc(6px * var(--ui-scale)) calc(10px * var(--ui-scale));
+  margin: calc(-6px * var(--ui-scale)) calc(-10px * var(--ui-scale));
+  transition: background var(--snap) var(--ease-snap);
+}
+
+.fc-hint--pressable:hover,
+.fc-hint--pressable:focus-visible {
+  background: var(--fc-hud-fill);
+}
+
+/* ---------------------------------------------------------------------------
+   Chevron seam — the 63° cut where two coloured blocks meet.
+   --------------------------------------------------------------------------- */
+
+.fc-seam {
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--chevron-run)) 0,
+    100% 50%,
+    calc(100% - var(--chevron-run)) 100%,
+    0 100%
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Section header + rails
+   --------------------------------------------------------------------------- */
+
+.fc-section-head {
+  font-weight: 700;
+  font-size: calc(var(--fs-section) * var(--ui-scale));
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fc-text);
+  margin: 0 0 calc(14px * var(--ui-scale));
+  padding-left: calc(6px * var(--ui-scale));
+}
+
+.fc-list { display: flex; flex-direction: column; }
+
+.fc-scrollrail {
+  position: relative;
+  width: calc(3px * var(--ui-scale));
+  border-radius: var(--r-pill);
+  background: var(--fc-hairline);
+  flex: 1 1 auto;
+}
+
+.fc-scrollrail__thumb {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  border-radius: var(--r-pill);
+  background: var(--fc-text);
+  transition: top var(--snap) var(--ease-snap), height var(--snap) var(--ease-snap);
+}

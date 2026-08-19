@@ -1,0 +1,715 @@
+/* ============================================================================
+   Club — the collection. Store on the left, what you own on the right, and a
+   full-screen reveal that takes over when a pack is opened.
+   ============================================================================ */
+
+.club {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  color: var(--fc-text);
+  animation: fc-push-in var(--push) var(--ease-push) both;
+}
+
+.club__top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: calc(22px * var(--ui-scale));
+  padding: calc(44px * var(--ui-scale)) calc(var(--margin-x) * var(--ui-scale))
+    calc(22px * var(--ui-scale));
+}
+
+.club__title {
+  margin: calc(6px * var(--ui-scale)) 0 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: calc(var(--fs-display-l) * var(--ui-scale));
+  line-height: 1;
+  transform: var(--display-slant);
+  transform-origin: left bottom;
+}
+
+.club__wallet {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1;
+}
+
+.club__coins {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(40px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+  /* The balance is the one number on this screen that changes as you act, so
+     it is worth animating when it does. */
+  transition: color var(--push) var(--ease-push);
+}
+
+.club__coinlabel {
+  margin-top: calc(6px * var(--ui-scale));
+  font-size: calc(var(--fs-micro) * var(--ui-scale));
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}
+
+/* ---- Tabs ---------------------------------------------------------------- */
+
+.club__tabs {
+  display: flex;
+  align-items: center;
+  gap: calc(28px * var(--ui-scale));
+  padding: 0 calc(var(--margin-x) * var(--ui-scale)) calc(16px * var(--ui-scale));
+}
+
+.club__bumpers {
+  display: inline-flex;
+  gap: calc(6px * var(--ui-scale));
+  margin-right: calc(4px * var(--ui-scale));
+}
+
+.club__tab {
+  position: relative;
+  padding: calc(6px * var(--ui-scale)) 0;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: calc(var(--fs-tab) * var(--ui-scale));
+  color: var(--fc-text-muted);
+  transition: color var(--snap) var(--ease-snap);
+}
+
+.club__tab[data-active='true'] { color: var(--fc-text); }
+
+.club__tab[data-active='true']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(2px * var(--ui-scale));
+  background: var(--fc-focus);
+  animation: fc-settle-in var(--snap) var(--ease-snap) both;
+}
+
+.club__body {
+  display: grid;
+  grid-template-columns: minmax(0, 0.46fr) minmax(0, 1fr);
+  gap: calc(var(--gutter) * var(--ui-scale));
+  padding: 0 calc(var(--margin-x) * var(--ui-scale));
+  min-height: 0;
+}
+
+.club__body--squad { grid-template-columns: minmax(0, 1fr) minmax(0, 0.44fr); }
+.club__body--play { grid-template-columns: minmax(0, 1fr) minmax(0, 0.44fr); }
+.club__body--store { grid-template-columns: minmax(0, 0.52fr) minmax(0, 1fr); }
+.club__body--items { grid-template-columns: minmax(0, 1fr); }
+
+/* ---- Squad summary ------------------------------------------------------- */
+
+.club__aside {
+  display: flex;
+  flex-direction: column;
+  gap: calc(18px * var(--ui-scale));
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding-bottom: calc(24px * var(--ui-scale));
+}
+
+.club__aside::-webkit-scrollbar { display: none; }
+
+.club__ratingblock {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.club__ratingnum {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(62px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+}
+
+.club__facts {
+  margin: 0;
+  display: grid;
+  gap: calc(9px * var(--ui-scale));
+  padding: calc(16px * var(--ui-scale)) 0;
+  border-top: 1px solid var(--fc-hairline);
+  border-bottom: 1px solid var(--fc-hairline);
+}
+
+.club__facts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.club__facts dt {
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  color: var(--fc-text-muted);
+}
+
+.club__facts dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(19px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+}
+
+.club__facts dd[data-warn='true'] { color: var(--fc-warn); }
+
+.club__note {
+  margin: 0;
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  line-height: 1.45;
+  color: var(--fc-text-muted);
+}
+
+/* ---- Store --------------------------------------------------------------- */
+
+.club__store {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--ui-scale));
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding-bottom: calc(30px * var(--ui-scale));
+}
+
+.club__store::-webkit-scrollbar { display: none; }
+
+.pack {
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'name  price'
+    'desc  price';
+  align-items: center;
+  gap: calc(4px * var(--ui-scale)) calc(18px * var(--ui-scale));
+  padding: calc(18px * var(--ui-scale)) calc(22px * var(--ui-scale));
+  border-radius: var(--r-row);
+  background: var(--fc-panel);
+  color: var(--fc-text);
+  text-align: left;
+  font-family: var(--font-ui);
+  transition: transform var(--snap) var(--ease-snap), background var(--snap) var(--ease-snap);
+}
+
+.pack__name {
+  grid-area: name;
+  font-weight: 700;
+  font-size: calc(var(--fs-label) * var(--ui-scale));
+}
+
+.pack__desc {
+  grid-area: desc;
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  color: var(--fc-text-muted);
+}
+
+.pack__price {
+  grid-area: price;
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(26px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+}
+
+/* A pack you cannot afford still shows its price — it is the reason to keep
+   playing, not something to hide. */
+.pack[data-affordable='false'] { opacity: 0.5; }
+.pack[data-affordable='false'] .pack__price { color: var(--fc-danger); }
+
+.pack[data-focused='true'] {
+  background: var(--fc-row-focus);
+  transform: translateX(calc(var(--chevron-run) * 0.5));
+}
+
+.pack__leak {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(3px * var(--ui-scale));
+  background: var(--fc-focus);
+  animation: fc-settle-in var(--snap) var(--ease-snap) both;
+}
+
+/* ---- Owned items --------------------------------------------------------- */
+
+.club__items {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.club__itemshead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.club__count {
+  margin-left: calc(10px * var(--ui-scale));
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--fc-focus);
+}
+
+.club__empty {
+  margin: calc(24px * var(--ui-scale)) 0 0;
+  font-size: calc(var(--fs-body) * var(--ui-scale));
+  color: var(--fc-text-muted);
+}
+
+.club__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(186px * var(--ui-scale)), 1fr));
+  gap: calc(26px * var(--ui-scale)) calc(20px * var(--ui-scale));
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* Cards scale and tilt on focus, so the track needs room for the overflow
+     rather than clipping the focused card at the edge of the scroller. */
+  padding: calc(14px * var(--ui-scale)) calc(10px * var(--ui-scale))
+    calc(36px * var(--ui-scale));
+  margin: 0 calc(-10px * var(--ui-scale));
+  align-content: start;
+  justify-items: center;
+}
+
+.club__grid::-webkit-scrollbar { display: none; }
+
+.club__actions {
+  display: flex;
+  align-items: center;
+  gap: calc(26px * var(--ui-scale));
+  padding: calc(18px * var(--ui-scale)) calc(var(--margin-x) * var(--ui-scale))
+    calc(28px * var(--ui-scale));
+}
+
+/* ============================================================================
+   Reveal — one item at a time, over everything else.
+   ============================================================================ */
+
+.reveal {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  background: var(--fc-scrim);
+  backdrop-filter: blur(calc(14px * var(--ui-scale)));
+  animation: fc-push-in var(--push) var(--ease-push) both;
+}
+
+/* The light behind the card. It is what makes a pull feel like an event. */
+.reveal__aurora {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 46% 52% at 50% 46%,
+    var(--fc-backdrop-glow) 0%,
+    var(--fc-backdrop-clear) 72%
+  );
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.reveal__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(24px * var(--ui-scale));
+}
+
+/* Keyed on the item id, so each card in a pull plays this from the start. */
+.reveal__card {
+  animation: reveal-in var(--settle) var(--ease-settle) both;
+}
+
+@keyframes reveal-in {
+  from { opacity: 0; transform: translateY(34px) scale(0.88); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.reveal__count {
+  margin: 0;
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}
+
+.reveal__next {
+  position: absolute;
+  right: calc(var(--margin-x) * var(--ui-scale));
+  bottom: calc(var(--margin-y) * var(--ui-scale));
+  display: inline-flex;
+  align-items: center;
+  gap: calc(12px * var(--ui-scale));
+  padding: calc(12px * var(--ui-scale)) calc(22px * var(--ui-scale));
+  border-radius: var(--r-pill);
+  background: var(--fc-panel);
+  color: var(--fc-text);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: calc(var(--fs-body) * var(--ui-scale));
+}
+
+:root[data-layout='phone'] .club__body { grid-template-columns: minmax(0, 1fr); }
+:root[data-layout='phone'] .club__store { flex: 0 0 auto; }
+
+/* ============================================================================
+   The pitch view — the eleven as a shape.
+   ============================================================================ */
+
+.pitchview {
+  position: relative;
+  min-height: 0;
+  border-radius: var(--r-panel);
+  overflow: hidden;
+  background: linear-gradient(
+    to bottom,
+    var(--pitch-stripe-dark) 0%,
+    var(--pitch-stripe-light) 100%
+  );
+}
+
+.pitchview__turf {
+  position: absolute;
+  inset: 0;
+  /* Mown stripes, running across the pitch as they do from a broadcast camera. */
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--pitch-stripe-light) 0 8%,
+    var(--pitch-stripe-dark) 8% 16%
+  );
+  opacity: 0.9;
+}
+
+.pitchview__halfway,
+.pitchview__circle,
+.pitchview__box {
+  position: absolute;
+  border: calc(2px * var(--ui-scale)) solid var(--pitch-line);
+  opacity: 0.34;
+}
+
+.pitchview__halfway {
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-width: 0 0 calc(2px * var(--ui-scale));
+}
+
+.pitchview__circle {
+  left: 50%;
+  top: 50%;
+  width: 22%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+
+.pitchview__box {
+  left: 27%;
+  right: 27%;
+  height: 13%;
+}
+
+.pitchview__box--near { bottom: 0; border-bottom: 0; }
+.pitchview__box--far { top: 0; border-top: 0; }
+
+.pitchview__spot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.pitchview__card { position: relative; }
+
+.pitchview__slot {
+  position: absolute;
+  left: 50%;
+  bottom: calc(-9px * var(--ui-scale));
+  transform: translateX(-50%);
+  padding: calc(2px * var(--ui-scale)) calc(8px * var(--ui-scale));
+  border-radius: var(--r-pill);
+  background: var(--fc-hud-fill);
+  color: var(--fc-text);
+  font-size: calc(10.5px * var(--ui-scale));
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+/* What playing out of position is costing, stated rather than implied. */
+.pitchview__warn {
+  position: absolute;
+  right: calc(-6px * var(--ui-scale));
+  top: calc(-6px * var(--ui-scale));
+  padding: calc(2px * var(--ui-scale)) calc(6px * var(--ui-scale));
+  border-radius: var(--r-chip);
+  background: var(--fc-warn);
+  color: var(--fc-text-invert);
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(11px * var(--ui-scale));
+}
+
+.pitchview__pin {
+  position: absolute;
+  left: calc(-5px * var(--ui-scale));
+  top: calc(-5px * var(--ui-scale));
+  width: calc(9px * var(--ui-scale));
+  height: calc(9px * var(--ui-scale));
+  border-radius: 50%;
+  background: var(--fc-focus);
+}
+
+.pitchview__empty {
+  width: var(--pitch-card, calc(112px * var(--ui-scale)));
+  aspect-ratio: 1 / 1.38;
+  border-radius: var(--r-row);
+  border: calc(2px * var(--ui-scale)) dashed var(--fc-hairline-strong);
+  background: var(--fc-scrim);
+  color: var(--fc-text-muted);
+  font-size: calc(26px * var(--ui-scale));
+  font-weight: 300;
+}
+
+.pitchview__empty[data-focused='true'] {
+  border-color: var(--fc-focus);
+  color: var(--fc-text);
+}
+
+/* ---- Bench strip --------------------------------------------------------- */
+
+.bench {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(14px * var(--ui-scale)) calc(10px * var(--ui-scale));
+  padding-top: calc(6px * var(--ui-scale));
+}
+
+/* ============================================================================
+   Swapping a shirt.
+   ============================================================================ */
+
+.swap {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: grid;
+  place-items: center;
+  background: var(--fc-scrim);
+  backdrop-filter: blur(calc(10px * var(--ui-scale)));
+  animation: fc-push-in var(--push) var(--ease-push) both;
+}
+
+.swap__panel {
+  width: min(78vw, calc(1180px * var(--ui-scale)));
+  max-height: 76vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: calc(32px * var(--ui-scale));
+  border-radius: var(--r-panel);
+  background: var(--fc-panel);
+}
+
+.swap__panel::-webkit-scrollbar { display: none; }
+
+.swap__head { margin-bottom: calc(18px * var(--ui-scale)); }
+
+.swap__slot {
+  margin: calc(4px * var(--ui-scale)) 0 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(34px * var(--ui-scale));
+  line-height: 1;
+  transform: var(--display-slant);
+  transform-origin: left bottom;
+}
+
+.swap__auto {
+  margin-top: calc(22px * var(--ui-scale));
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10px * var(--ui-scale));
+  padding: calc(10px * var(--ui-scale)) calc(18px * var(--ui-scale));
+  border-radius: var(--r-pill);
+  background: var(--fc-panel-alt);
+  color: var(--fc-text);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+}
+
+:root[data-layout='phone'] .club__body--squad,
+:root[data-layout='phone'] .club__body--store { grid-template-columns: minmax(0, 1fr); }
+
+/* ============================================================================
+   The fixture slate.
+   ============================================================================ */
+
+.slate {
+  display: flex;
+  flex-direction: column;
+  gap: calc(12px * var(--ui-scale));
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding-bottom: calc(24px * var(--ui-scale));
+}
+
+.slate::-webkit-scrollbar { display: none; }
+
+.fixture {
+  position: relative;
+  overflow: hidden;
+  /* Rows keep their height and the list scrolls. Without this they inherit a
+     flex item's default shrink, compress to fit a short window, and the
+     overflow rule above quietly clips everything but the top line. */
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  grid-template-areas: 'difficulty club numbers reward';
+  align-items: center;
+  gap: calc(24px * var(--ui-scale));
+  padding: calc(20px * var(--ui-scale)) calc(26px * var(--ui-scale));
+  border-radius: var(--r-row);
+  background: var(--fc-panel);
+  color: var(--fc-text);
+  text-align: left;
+  font-family: var(--font-ui);
+  transition: transform var(--snap) var(--ease-snap), background var(--snap) var(--ease-snap);
+}
+
+.fixture:disabled { opacity: 0.42; }
+
+.fixture[data-focused='true']:not(:disabled) {
+  background: var(--fc-row-focus);
+  transform: translateX(calc(var(--chevron-run) * 0.5));
+}
+
+.fixture__leak {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(3px * var(--ui-scale));
+  background: var(--fc-focus);
+  animation: fc-settle-in var(--snap) var(--ease-snap) both;
+}
+
+/* The rung, read down the left edge like a form guide. */
+.fixture__difficulty {
+  grid-area: difficulty;
+  width: calc(104px * var(--ui-scale));
+  font-size: calc(11.5px * var(--ui-scale));
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.fixture[data-difficulty='comfortable'] .fixture__difficulty { color: var(--fc-positive); }
+.fixture[data-difficulty='even'] .fixture__difficulty { color: var(--fc-stamina); }
+.fixture[data-difficulty='testing'] .fixture__difficulty { color: var(--fc-warn); }
+.fixture[data-difficulty='formidable'] .fixture__difficulty { color: var(--fc-danger); }
+
+.fixture__club {
+  grid-area: club;
+  display: flex;
+  align-items: center;
+  gap: calc(16px * var(--ui-scale));
+  min-width: 0;
+}
+
+.fixture__names {
+  display: flex;
+  flex-direction: column;
+  gap: calc(3px * var(--ui-scale));
+  min-width: 0;
+}
+
+.fixture__name {
+  font-weight: 700;
+  font-size: calc(var(--fs-label) * var(--ui-scale));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fixture__venue {
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  color: var(--fc-text-muted);
+}
+
+.fixture__numbers {
+  grid-area: numbers;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(3px * var(--ui-scale));
+}
+
+.fixture__rating {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(30px * var(--ui-scale));
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.fixture__gap {
+  font-size: calc(var(--fs-micro) * var(--ui-scale));
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}
+
+.fixture__gap[data-sign='above'] { color: var(--fc-warn); }
+.fixture__gap[data-sign='below'] { color: var(--fc-positive); }
+
+/* What the rung multiplies the payout by — the reason to climb. */
+.fixture__reward {
+  grid-area: reward;
+  min-width: calc(64px * var(--ui-scale));
+  text-align: right;
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(22px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+  color: var(--fc-focus);
+}
+
+:root[data-layout='phone'] .club__body--play { grid-template-columns: minmax(0, 1fr); }
+
+/* The multiplier is the reason to pick a harder game, so it moves rather than
+   being dropped when the row runs out of columns. */
+:root:not([data-layout='wide']) .fixture {
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'difficulty numbers'
+    'club       numbers'
+    'reward     numbers';
+  gap: calc(6px * var(--ui-scale)) calc(14px * var(--ui-scale));
+}
+
+:root:not([data-layout='wide']) .fixture__difficulty { width: auto; }
+:root:not([data-layout='wide']) .fixture__reward { text-align: left; min-width: 0; }
+:root:not([data-layout='wide']) .fixture__numbers { align-self: center; }

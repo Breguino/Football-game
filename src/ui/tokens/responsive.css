@@ -1,0 +1,254 @@
+/* ============================================================================
+   Narrow layouts.
+
+   Keyed on [data-layout], set by the same code that computes --ui-scale, so
+   the reflow and the scale can never disagree — a media query cut at a
+   different width than the scale switch produces a band where the layout has
+   changed and the scale has not, which is where things overflow.
+   ============================================================================ */
+
+:root[data-layout='compact'] {
+  --margin-x: 44px;
+  --gutter: 28px;
+}
+
+:root[data-layout='phone'],
+:root[data-layout='phone-landscape'] {
+  --margin-x: 18px;
+  --gutter: 16px;
+  --margin-y: 20px;
+  --row-h: 60px;
+}
+
+/* A phone on its side has width to spare and almost no height, so the
+   vertical rhythm tightens rather than the horizontal one. */
+:root[data-layout='phone-landscape'] {
+  --margin-x: 26px;
+  --margin-y: 12px;
+  --row-h: 48px;
+}
+
+/* ---- Short screens --------------------------------------------------------
+   A phone on its side has about 390 points of height, and the standing header
+   ate nearly all of it: an eyebrow, a display title and a tab row, each sized
+   for a screen three times as tall. The header compacts rather than the whole
+   layout shrinking, which would take the content with it.
+   -------------------------------------------------------------------------- */
+
+:root[data-layout='phone-landscape'] .club__top,
+:root[data-layout='phone-landscape'] .squad__top,
+:root[data-layout='phone-landscape'] .hub__top {
+  padding-top: calc(10px * var(--ui-scale));
+  padding-bottom: calc(4px * var(--ui-scale));
+}
+
+:root[data-layout='phone-landscape'] .club__top .t-eyebrow {
+  display: none;
+}
+
+:root[data-layout='phone-landscape'] .club__title,
+:root[data-layout='phone-landscape'] .squad__name {
+  font-size: calc(24px * var(--ui-scale));
+}
+
+:root[data-layout='phone-landscape'] .club__coins,
+:root[data-layout='phone-landscape'] .squad__ratingnum {
+  font-size: calc(24px * var(--ui-scale));
+}
+
+:root[data-layout='phone-landscape'] .club__coinlabel,
+:root[data-layout='phone-landscape'] .squad__ratinglabel {
+  display: none;
+}
+
+:root[data-layout='phone-landscape'] .club__tabs,
+:root[data-layout='phone-landscape'] .hub__tabs {
+  padding-bottom: calc(6px * var(--ui-scale));
+}
+
+/* The squad summary is a column of numbers beside the pitch; on a short screen
+   the rating block alone is enough. */
+:root[data-layout='phone-landscape'] .club__ratingnum {
+  font-size: calc(34px * var(--ui-scale));
+}
+
+/* ---- Hub ------------------------------------------------------------------
+   The rails scroll horizontally by design, so they need no reflow — only room
+   to breathe and a tap-friendly tile.
+   -------------------------------------------------------------------------- */
+
+:root[data-layout='phone'] .hub__top,
+:root[data-layout='phone-landscape'] .hub__top {
+  padding-top: calc(18px * var(--ui-scale));
+  flex-wrap: wrap;
+  gap: calc(10px * var(--ui-scale));
+}
+
+:root[data-layout='phone'] .hub__account { gap: calc(14px * var(--ui-scale)); }
+
+/* The wordmark, the crest, the club and the league do not fit across a phone.
+   The crest and the club name carry the identity; the wordmark is the one
+   that can go, because the game is already open. */
+:root[data-layout='phone'] .hub__wordmark { display: none; }
+
+:root[data-layout='phone'] .hub__brand { min-width: 0; }
+
+:root[data-layout='phone'] .hub__club,
+:root[data-layout='phone'] .hub__league {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Four tabs are wider than a phone, so the row scrolls inside itself rather
+   than pushing the document sideways. */
+:root[data-layout='phone'] .hub__tabs,
+:root[data-layout='phone'] .club__tabs {
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+}
+
+:root[data-layout='phone'] .hub__tabs::-webkit-scrollbar,
+:root[data-layout='phone'] .club__tabs::-webkit-scrollbar { display: none; }
+
+:root[data-layout='phone'] .hub__tab,
+:root[data-layout='phone'] .club__tab {
+  flex: 0 0 auto;
+}
+
+/* ---- Two-pane screens -----------------------------------------------------
+   Squad, Club and the fixture slate are all a main pane and an aside. On a
+   phone they stack, and the aside comes first: the summary is what you want
+   before the detail, and scrolling past a pitch to reach it is worse than
+   scrolling past three numbers to reach the pitch.
+   -------------------------------------------------------------------------- */
+
+:root[data-layout='phone'] .club__body,
+:root[data-layout='phone'] .squad__body {
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: min-content;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+:root[data-layout='phone'] .club__body::-webkit-scrollbar,
+:root[data-layout='phone'] .squad__body::-webkit-scrollbar { display: none; }
+
+:root[data-layout='phone'] .club__aside { order: -1; }
+
+/* The formation view needs a real aspect ratio once it is not filling a
+   column; without one it collapses to nothing in a stacked grid. */
+:root[data-layout='phone'] .pitchview {
+  aspect-ratio: 3 / 4;
+  min-height: calc(380px * var(--ui-scale));
+}
+
+:root[data-layout='phone'] .club__grid {
+  grid-template-columns: repeat(auto-fill, minmax(calc(132px * var(--ui-scale)), 1fr));
+}
+
+/* ---- Fixtures ------------------------------------------------------------
+   The stacked form is in club.css, alongside the wide one it replaces. Only
+   the padding is a phone concern.
+   -------------------------------------------------------------------------- */
+
+:root[data-layout='phone'] .fixture {
+  padding: calc(14px * var(--ui-scale)) calc(16px * var(--ui-scale));
+}
+
+/* ---- Match HUD ------------------------------------------------------------
+   The action bar and the radar compete with the thumbs for the bottom of the
+   screen, so on a phone the radar goes and the hints shrink.
+   -------------------------------------------------------------------------- */
+
+:root[data-layout='phone'] .radar,
+:root[data-layout='phone-landscape'] .radar {
+  display: none;
+}
+
+/* The competition chip hangs below the scoreboard and lands on the mentality
+   readout once the screen is short. The league is named top-right anyway. */
+:root[data-layout='phone'] .bug__drop,
+:root[data-layout='phone-landscape'] .bug__drop {
+  display: none;
+}
+
+/* The name bars sit exactly where the thumbs go. */
+:root[data-layout='phone'] .pbar,
+:root[data-layout='phone-landscape'] .pbar {
+  display: none;
+}
+
+/* ---- Action bars ----------------------------------------------------------
+   A row of four hints does not fit across a phone and does not wrap, so it
+   pushed every screen wider than the viewport — the bar is laid out first and
+   everything above it stretched to match.
+   -------------------------------------------------------------------------- */
+
+:root[data-layout='phone'] .club__actions,
+:root[data-layout='phone'] .squad__actions,
+:root[data-layout='phone'] .hub__actions,
+:root[data-layout='phone'] .settings__actions,
+:root[data-layout='phone-landscape'] .club__actions,
+:root[data-layout='phone-landscape'] .squad__actions,
+:root[data-layout='phone-landscape'] .hub__actions,
+:root[data-layout='phone-landscape'] .settings__actions {
+  flex-wrap: wrap;
+  gap: calc(8px * var(--ui-scale)) calc(14px * var(--ui-scale));
+  padding-top: calc(10px * var(--ui-scale));
+  padding-bottom: calc(14px * var(--ui-scale));
+}
+
+:root[data-layout='phone'] .fc-hint,
+:root[data-layout='phone-landscape'] .fc-hint {
+  font-size: calc(12px * var(--ui-scale));
+}
+
+/* ---- Tap targets ----------------------------------------------------------
+   A finger needs about 44px whatever the scale says.
+   -------------------------------------------------------------------------- */
+
+:root[data-layout='phone'] .club__tab,
+:root[data-layout='phone-landscape'] .club__tab,
+:root[data-layout='phone'] .hub__tab,
+:root[data-layout='phone-landscape'] .hub__tab {
+  padding: calc(10px * var(--ui-scale)) calc(4px * var(--ui-scale));
+  min-height: 44px;
+}
+
+/* On a phone the action bar is the control, not a caption: the glyph names a
+   key nobody has, and the target has to take a fingertip. */
+:root[data-layout='phone'] .fc-hint--pressable,
+:root[data-layout='phone-landscape'] .fc-hint--pressable {
+  min-height: 44px;
+  padding: calc(8px * var(--ui-scale)) calc(14px * var(--ui-scale));
+  margin: 0;
+  background: var(--fc-hud-fill);
+  border: 1px solid var(--fc-hairline);
+}
+
+:root[data-layout='phone'] .fc-hint--pressable .fc-glyph,
+:root[data-layout='phone-landscape'] .fc-hint--pressable .fc-glyph {
+  display: none;
+}
+
+/* A plain hint has no control behind it, so on a phone it is only noise. */
+:root[data-layout='phone'] .fc-hint:not(.fc-hint--pressable),
+:root[data-layout='phone-landscape'] .fc-hint:not(.fc-hint--pressable) {
+  display: none;
+}
+
+:root[data-layout='phone'] .club__actions,
+:root[data-layout='phone'] .hub__actions {
+  flex-wrap: wrap;
+  gap: calc(10px * var(--ui-scale));
+}
+
+/* Controller glyph rows are meaningless without a controller or a keyboard. */
+:root[data-layout='phone'] .hub__bumpers,
+:root[data-layout='phone'] .club__bumpers,
+:root[data-layout='phone-landscape'] .hub__bumpers,
+:root[data-layout='phone-landscape'] .club__bumpers {
+  display: none;
+}

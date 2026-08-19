@@ -1,0 +1,950 @@
+<title>FC 26 Aesthetic Teardown</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Rubik:wght@300;400;500;700&family=Saira+Condensed:wght@700;800&display=swap">
+
+<style>
+/* ============================================================
+   Single-theme by intent: the subject IS a pure-black broadcast
+   UI. Rendering it on a light ground would destroy the thing
+   being documented. Every colour is painted explicitly so the
+   page holds on any host ground.
+   ============================================================ */
+:root{
+  /* surfaces */
+  --void:#000000;
+  --raised:#0D0E12;
+  --panel:#1D1D27;
+  --panel-alt:#252A40;
+  --row-focus:#12141F;
+  --hairline:rgba(255,255,255,.10);
+
+  /* text — neutrals biased cool, toward the teal accent */
+  --text:#FFFFFF;
+  --body:#D8DAE2;
+  --muted:#8A8C93;
+  --dim:#55575E;
+
+  /* accents */
+  --focus:#2EC4B6;
+  --stamina:#34B6DA;
+  --positive:#00E36B;
+  --warn:#FFC53D;
+  --danger:#E8455F;
+
+  /* brand */
+  --ink:#0B0E1A;
+  --aurora-1:#14D6A0;
+  --aurora-2:#1FC8C8;
+  --aurora-3:#2A6FE0;
+  --aurora-4:#9AE83A;
+
+  /* pitch */
+  --pitch-light:#5C7C34;
+  --pitch-dark:#4B6B29;
+
+  --irid:linear-gradient(90deg,#35E0D0 0%,#9FEFE4 18%,#FFFFFF 40%,#FFE9B8 62%,#F3C88C 78%,#35E0D0 100%);
+
+  --r-row:10px; --r-panel:20px; --r-chip:6px;
+
+  --display:'Chakra Petch','Saira Condensed',system-ui,sans-serif;
+  --ui:'Rubik','Inter',system-ui,-apple-system,sans-serif;
+  --data:'Saira Condensed','Rubik',system-ui,sans-serif;
+
+  --maxw:1180px;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--void); color:var(--body);
+  font-family:var(--ui); font-weight:400; font-size:16px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--focus); color:#04120F}
+
+/* ---------- shared type ---------- */
+.display{
+  font-family:var(--display); font-weight:700; text-transform:uppercase;
+  letter-spacing:-.005em; transform:skewX(-9deg); transform-origin:left bottom;
+  color:var(--text); text-wrap:balance;
+}
+.eyebrow{
+  font-family:var(--ui); font-weight:500; font-size:12px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--focus);
+}
+.section-head{
+  font-family:var(--ui); font-weight:700; font-size:clamp(19px,2.2vw,22px);
+  letter-spacing:.06em; text-transform:uppercase; color:var(--text); margin:0;
+}
+.lede{font-size:clamp(16px,1.5vw,17.5px); color:var(--body); max-width:64ch; margin:0}
+.note{font-size:14.5px; color:var(--muted); max-width:68ch; margin:0}
+code{font-family:var(--data); font-weight:700; letter-spacing:.02em; color:var(--focus); font-size:1.02em}
+
+/* ---------- layout ---------- */
+.wrap{max-width:var(--maxw); margin:0 auto; padding:0 clamp(20px,5vw,48px)}
+section{padding:clamp(56px,7vw,88px) 0; border-top:1px solid var(--hairline)}
+.stack{display:flex; flex-direction:column; gap:clamp(20px,2.6vw,30px)}
+.stack-sm{display:flex; flex-direction:column; gap:14px}
+.head-block{display:flex; flex-direction:column; gap:12px; margin-bottom:clamp(28px,3.5vw,42px)}
+
+/* ============================================================
+   HERO — the brand surface, rebuilt: near-black navy, blurred
+   aurora blobs, fine contour lines, oblique wordmark.
+   ============================================================ */
+.hero{
+  position:relative; overflow:hidden; background:var(--ink);
+  border-bottom:1px solid var(--hairline);
+}
+.hero canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
+.hero .veil{
+  position:absolute; inset:0;
+  background:radial-gradient(120% 90% at 50% 55%, rgba(11,14,26,0) 0%, rgba(11,14,26,.72) 70%, rgba(11,14,26,.94) 100%);
+}
+.hero .wrap{position:relative; padding-top:clamp(72px,12vw,132px); padding-bottom:clamp(64px,9vw,104px)}
+.hero-title{
+  font-family:var(--display); font-weight:700; text-transform:uppercase;
+  font-size:clamp(46px,9.2vw,104px); line-height:.92; letter-spacing:-.015em;
+  transform:skewX(-9deg); transform-origin:left bottom; color:#fff; margin:18px 0 0;
+}
+.hero-title .thin{color:var(--focus); display:block}
+.hero-sub{margin:26px 0 0; max-width:56ch; font-size:clamp(16px,1.7vw,19px); color:#CDD3DE}
+.hero-meta{
+  display:flex; flex-wrap:wrap; gap:10px; margin-top:34px;
+}
+.tag{
+  font-size:12px; font-weight:500; letter-spacing:.1em; text-transform:uppercase;
+  padding:7px 13px; border-radius:999px; border:1px solid rgba(255,255,255,.18);
+  color:#D8DAE2; background:rgba(255,255,255,.04);
+}
+
+/* ============================================================
+   PALETTE
+   ============================================================ */
+.swatches{display:grid; grid-template-columns:repeat(auto-fill,minmax(168px,1fr)); gap:12px}
+.sw{
+  border-radius:var(--r-chip); border:1px solid var(--hairline); overflow:hidden;
+  background:var(--raised);
+}
+.sw .chip{height:78px; display:block}
+.sw .meta{padding:11px 12px; display:flex; flex-direction:column; gap:3px}
+.sw .name{font-size:12.5px; font-weight:500; color:var(--text); letter-spacing:.02em}
+.sw .hex{font-family:var(--data); font-weight:700; font-size:14px; letter-spacing:.05em; color:var(--muted)}
+.sw .role{font-size:11.5px; color:var(--dim); line-height:1.35}
+
+/* ============================================================
+   TYPE SPECIMEN
+   ============================================================ */
+.specimens{display:grid; gap:16px}
+.spec{
+  background:var(--raised); border:1px solid var(--hairline);
+  border-radius:var(--r-panel); padding:clamp(20px,3vw,30px);
+  display:grid; gap:14px; grid-template-columns:1fr; align-items:end;
+}
+@media(min-width:760px){ .spec{grid-template-columns:1fr 232px} }
+.spec .sample{overflow:hidden}
+.spec .info{display:flex; flex-direction:column; gap:5px; padding-bottom:4px}
+.spec .info b{font-size:13px; font-weight:700; color:var(--text); letter-spacing:.04em; text-transform:uppercase}
+.spec .info span{font-size:13px; color:var(--muted); line-height:1.45}
+.s-display{font-family:var(--display); font-weight:700; text-transform:uppercase; font-size:clamp(38px,6vw,62px); line-height:.95; transform:skewX(-9deg); transform-origin:left bottom; color:var(--text); letter-spacing:-.01em}
+.s-ui{font-family:var(--ui); font-size:clamp(20px,2.6vw,27px); color:var(--text); font-weight:400}
+.s-ui b{font-weight:700; text-transform:uppercase; letter-spacing:.02em}
+.s-data{font-family:var(--data); font-weight:800; font-size:clamp(40px,7vw,72px); line-height:1; color:var(--text); font-variant-numeric:tabular-nums; letter-spacing:.01em}
+
+/* ============================================================
+   LIVE: FOCUS ROW  (the signature component)
+   ============================================================ */
+.demo{
+  background:var(--raised); border:1px solid var(--hairline);
+  border-radius:var(--r-panel); padding:clamp(18px,3vw,30px);
+}
+.demo-label{
+  display:flex; align-items:baseline; justify-content:space-between; gap:16px;
+  margin-bottom:20px; flex-wrap:wrap;
+}
+.demo-label b{font-size:13px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--text)}
+.demo-label span{font-size:13px; color:var(--muted)}
+
+.rowlist{position:relative; display:flex; flex-direction:column}
+.row{
+  position:relative; display:grid; grid-template-columns:1fr auto;
+  align-items:center; gap:20px; min-height:64px; padding:0 22px;
+  border-bottom:1px solid var(--hairline); cursor:pointer; background:transparent;
+  border-radius:var(--r-row); transition:background 140ms ease;
+  font:inherit; color:var(--text); text-align:left; width:100%;
+  border-left:1.5px solid transparent; border-right:1.5px solid transparent; border-top:1.5px solid transparent;
+}
+.row .label{font-weight:400; font-size:clamp(15px,1.7vw,18px)}
+.row .value{font-weight:700; text-transform:uppercase; letter-spacing:.02em; font-size:clamp(14px,1.6vw,17px); color:var(--text)}
+.row:focus-visible{outline:none}
+.row[data-focused="true"]{
+  background:var(--row-focus);
+  border:1.5px solid var(--focus);
+  border-radius:var(--r-row);
+  box-shadow:0 0 0 1px rgba(46,196,182,.22);
+}
+.row[data-focused="true"] .label{font-weight:700}
+.row[data-focused="true"]::before,
+.row[data-focused="true"]::after{
+  content:""; position:absolute; left:8px; right:8px; height:10px;
+  background:var(--irid); background-size:220% 100%;
+  filter:blur(6px); opacity:.85; pointer-events:none; border-radius:999px;
+  animation:sweep 900ms linear 1;
+}
+.row[data-focused="true"]::before{top:-6px}
+.row[data-focused="true"]::after{bottom:-6px}
+@keyframes sweep{ from{background-position:-120% 0} to{background-position:120% 0} }
+@media(prefers-reduced-motion:reduce){
+  .row[data-focused="true"]::before,.row[data-focused="true"]::after{animation:none}
+}
+.cyc{display:inline-flex; align-items:center; gap:12px}
+.cyc i{font-style:normal; color:var(--muted); font-size:13px}
+.slider{display:flex; align-items:center; gap:16px}
+.track{position:relative; width:clamp(110px,20vw,220px); height:4px; border-radius:999px; background:#6E6E6E}
+.track .fill{position:absolute; inset:0 auto 0 0; border-radius:999px; background:#E8E9E3}
+.track .knob{position:absolute; top:50%; width:14px; height:14px; border-radius:50%; background:#fff; transform:translate(-50%,-50%)}
+.num{font-family:var(--data); font-weight:800; font-size:19px; min-width:2.4ch; text-align:right; font-variant-numeric:tabular-nums}
+.hint{margin-top:16px; font-size:13px; color:var(--dim)}
+.key{
+  display:inline-block; padding:2px 7px; border-radius:5px; background:#C9CBD1; color:#14161C;
+  font-family:var(--ui); font-weight:700; font-size:11px; letter-spacing:.03em; margin:0 2px;
+}
+
+/* ============================================================
+   LIVE: SCOREBOARD BUG
+   ============================================================ */
+.pitchstage{
+  position:relative; border-radius:var(--r-panel); overflow:hidden;
+  border:1px solid var(--hairline); aspect-ratio:16/9; min-height:260px;
+  background:
+    repeating-linear-gradient(90deg,var(--pitch-light) 0 7.14%,var(--pitch-dark) 7.14% 14.28%);
+}
+.pitchstage .grade{
+  position:absolute; inset:0;
+  background:radial-gradient(80% 70% at 50% 42%, rgba(255,255,255,.10), rgba(0,0,0,.42) 78%, rgba(0,0,0,.62) 100%);
+}
+.pitchstage .lines{position:absolute; inset:0}
+.pitchstage .lines i{position:absolute; background:rgba(242,245,238,.85); display:block}
+
+/* score bug */
+.bug{position:absolute; left:4.7%; top:4.9%; width:min(390px,32%); font-family:var(--data)}
+.bug .strip{display:flex; height:clamp(30px,4.6vw,44px); filter:drop-shadow(0 2px 8px rgba(0,0,0,.45))}
+.seg{display:flex; align-items:center; justify-content:center; position:relative}
+.seg.home{
+  flex:0 0 27%; background:var(--team-a,#8C1C2B); color:#fff;
+  border-radius:4px 0 0 4px;
+  clip-path:polygon(0 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 0 100%);
+}
+.seg.score{
+  flex:1 1 auto; background:var(--comp,#350137); color:#fff; margin-left:-1px;
+  clip-path:polygon(0 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 0 100%);
+}
+.seg.away{
+  flex:0 0 27%; background:var(--team-b,#E6E6E6); color:#14161C; margin-left:-1px;
+  border-radius:0 4px 4px 0;
+}
+.seg b{font-weight:800; font-size:clamp(14px,2.1vw,21px); letter-spacing:.06em}
+.seg.score .sc{display:flex; align-items:center; gap:clamp(4px,1vw,10px)}
+.seg.score .sc b{font-size:clamp(17px,2.7vw,27px); letter-spacing:0}
+.crest{
+  width:clamp(15px,2.3vw,23px); height:clamp(15px,2.3vw,23px); border-radius:50%;
+  background:conic-gradient(from 200deg,#fff,#C8B9CE 40%,#fff 70%,#9C7FA6);
+  box-shadow:0 0 0 1.5px rgba(0,0,0,.25);
+}
+.bug .clock{
+  width:34%; margin:0 auto; height:clamp(19px,2.6vw,26px);
+  background:var(--comp,#350137); color:#fff; border-radius:0 0 4px 4px;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:clamp(11px,1.6vw,16px); letter-spacing:.05em;
+  font-variant-numeric:tabular-nums;
+}
+.bug .sponsor{
+  width:34%; margin:2px auto 0; height:clamp(15px,2.1vw,21px);
+  background:#F2F2F2; color:#101014; border-radius:3px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--ui); font-weight:700; font-size:clamp(8px,1.1vw,11px); letter-spacing:.14em;
+}
+
+/* player bars */
+.pbar{position:absolute; bottom:5.5%; display:flex; align-items:flex-start; gap:10px; width:min(360px,34%)}
+.pbar.left{left:2.2%}
+.pbar.right{right:2.2%; flex-direction:row-reverse}
+.pb-crest{
+  flex:0 0 auto; width:clamp(22px,3.4vw,34px); height:clamp(22px,3.4vw,34px); border-radius:50%;
+  background:conic-gradient(from 40deg,var(--pc,#8C1C2B),#F1D9A8 45%,var(--pc,#8C1C2B) 90%);
+  box-shadow:0 1px 5px rgba(0,0,0,.55);
+}
+.pb-body{flex:1 1 auto; min-width:0}
+.pb-name{
+  position:relative; background:rgba(0,0,0,.55); border-radius:6px;
+  padding:clamp(5px,1vw,9px) clamp(8px,1.4vw,13px);
+  display:flex; align-items:center; gap:9px; overflow:hidden;
+}
+.pbar.right .pb-name{flex-direction:row-reverse}
+.pb-stam{position:absolute; left:0; top:0; height:3px; border-radius:999px; background:var(--stamina); transition:width 90ms linear}
+.pbar.right .pb-stam{left:auto; right:0}
+.pb-num{font-family:var(--data); font-weight:700; font-size:clamp(11px,1.6vw,16px); color:#B9BCC4}
+.pb-sur{font-family:var(--ui); font-weight:500; text-transform:uppercase; letter-spacing:.06em; font-size:clamp(10px,1.5vw,15px); color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.pb-pill{
+  margin:4px auto 0; width:78%; background:rgba(0,0,0,.55); border-radius:6px;
+  padding:clamp(3px,.7vw,5px) 9px; display:flex; align-items:center; gap:7px; justify-content:center;
+}
+.pips{display:flex; gap:2px}
+.pips i{width:clamp(5px,.85vw,8px); height:clamp(5px,.85vw,8px); background:#3A3A3A; clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
+.pips i.on{background:var(--positive)}
+.divid{width:1px; height:clamp(7px,1.1vw,11px); background:rgba(255,255,255,.28)}
+.boot{width:clamp(8px,1.2vw,12px); height:clamp(5px,.8vw,8px); border-radius:2px 5px 2px 2px; background:var(--positive)}
+.boot.off{background:#4A4A4A}
+.runner{width:clamp(5px,.8vw,7px); height:clamp(8px,1.2vw,12px); border-radius:2px; background:#D7D9DE}
+
+/* radar */
+.radar{
+  position:absolute; left:50%; transform:translateX(-50%); bottom:5.5%;
+  width:min(400px,26%); aspect-ratio:400/204; background:rgba(0,0,0,.45); border-radius:4px;
+}
+.radar .tick{position:absolute; width:11px; height:11px; border:1.5px solid rgba(255,255,255,.5)}
+.radar .tick.tl{top:5px;left:5px;border-right:0;border-bottom:0}
+.radar .tick.tr{top:5px;right:5px;border-left:0;border-bottom:0}
+.radar .tick.bl{bottom:5px;left:5px;border-right:0;border-top:0}
+.radar .tick.br{bottom:5px;right:5px;border-left:0;border-top:0}
+.radar .mk{position:absolute; width:6px; height:6px; border-radius:50%; background:#EDEDED; transform:translate(-50%,-50%)}
+.radar .mk.b{border-radius:0; background:transparent; width:0;height:0;
+  border-left:4px solid transparent; border-right:4px solid transparent; border-top:7px solid var(--team-a,#8C1C2B)}
+.radar .ball{position:absolute; width:5px; height:5px; border-radius:50%; background:var(--warn); transform:translate(-50%,-50%)}
+
+/* indicator triangle */
+.tri{
+  position:absolute; width:0; height:0; transform:translate(-50%,0);
+  border-left:13px solid transparent; border-right:13px solid transparent;
+  border-top:16px solid var(--team-a,#8C1C2B);
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.55));
+}
+
+/* stamina controls */
+.ctl{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:18px}
+.ctl label{font-size:13px; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; font-weight:500}
+input[type=range]{
+  -webkit-appearance:none; appearance:none; width:min(260px,60vw); height:4px; border-radius:999px;
+  background:#6E6E6E; outline:none;
+}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:#fff; cursor:pointer}
+input[type=range]::-moz-range-thumb{width:14px; height:14px; border:0; border-radius:50%; background:#fff; cursor:pointer}
+input[type=range]:focus-visible{box-shadow:0 0 0 2px var(--focus)}
+
+/* ============================================================
+   TABLES
+   ============================================================ */
+.tablewrap{overflow-x:auto; border:1px solid var(--hairline); border-radius:var(--r-panel); background:var(--raised)}
+table{width:100%; border-collapse:collapse; min-width:520px}
+th,td{padding:13px 18px; text-align:left; border-bottom:1px solid var(--hairline); font-size:14.5px}
+th{
+  font-size:11.5px; font-weight:700; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--muted); background:rgba(255,255,255,.02);
+}
+tbody tr:last-child td{border-bottom:0}
+td.n{font-family:var(--data); font-weight:700; font-variant-numeric:tabular-nums; color:var(--text); letter-spacing:.03em}
+td strong{color:var(--text); font-weight:500}
+
+/* ============================================================
+   RULES / PRINCIPLES
+   ============================================================ */
+.rules{display:grid; gap:1px; background:var(--hairline); border:1px solid var(--hairline); border-radius:var(--r-panel); overflow:hidden}
+.rule{background:var(--raised); padding:clamp(20px,2.8vw,28px); display:grid; gap:9px; grid-template-columns:1fr}
+@media(min-width:820px){ .rule{grid-template-columns:200px 1fr; gap:24px; align-items:start} }
+.rule h3{margin:0; font-family:var(--ui); font-size:15.5px; font-weight:700; color:var(--text); letter-spacing:.02em; line-height:1.35}
+.rule p{margin:0; font-size:15px; color:var(--body); max-width:62ch}
+
+/* tiers */
+.tiers{display:grid; gap:14px; grid-template-columns:1fr}
+@media(min-width:820px){ .tiers{grid-template-columns:repeat(3,1fr)} }
+.tier{
+  background:var(--raised); border:1px solid var(--hairline); border-radius:var(--r-panel);
+  padding:clamp(20px,2.6vw,26px); display:flex; flex-direction:column; gap:12px;
+}
+.tier .n{font-family:var(--data); font-weight:800; font-size:15px; letter-spacing:.1em; color:var(--focus); text-transform:uppercase}
+.tier h3{margin:0; font-family:var(--display); font-weight:700; text-transform:uppercase; transform:skewX(-9deg); transform-origin:left bottom; font-size:26px; color:var(--text); line-height:1}
+.tier ul{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:7px}
+.tier li{font-size:14.5px; color:var(--body)}
+.tier .exit{
+  margin-top:auto; padding-top:14px; border-top:1px solid var(--hairline);
+  font-size:13.5px; color:var(--muted);
+}
+
+/* footer */
+footer{border-top:1px solid var(--hairline); padding:44px 0 64px}
+footer p{margin:0; font-size:13.5px; color:var(--dim); max-width:70ch}
+footer p + p{margin-top:12px}
+.filecard{
+  display:flex; align-items:center; gap:14px; padding:16px 20px; margin-bottom:26px;
+  background:var(--panel); border-radius:var(--r-panel); border:1px solid var(--hairline);
+  flex-wrap:wrap;
+}
+.filecard .fn{font-family:var(--data); font-weight:800; font-size:17px; color:var(--text); letter-spacing:.04em}
+.filecard .fd{font-size:14px; color:var(--muted); flex:1 1 240px}
+</style>
+
+<header class="hero">
+  <canvas id="aurora" aria-hidden="true"></canvas>
+  <div class="veil" aria-hidden="true"></div>
+  <div class="wrap">
+    <p class="eyebrow">Reverse-engineered from published FC 26 imagery</p>
+    <h1 class="hero-title">The Look<span class="thin">Decoded</span></h1>
+    <p class="hero-sub">
+      Every colour, measurement and motion curve below was sampled or measured from real
+      FC&nbsp;26 captures — menu screens, in-match HUD, brand key art. The components on this
+      page are rebuilt live in CSS, not screenshotted. Use it as the visual target for the build.
+    </p>
+    <div class="hero-meta">
+      <span class="tag">21 colour tokens</span>
+      <span class="tag">3 type roles</span>
+      <span class="tag">Live components</span>
+      <span class="tag">Original IP only</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ PRINCIPLES ============ -->
+<section>
+  <div class="wrap">
+    <div class="head-block">
+      <p class="eyebrow">What actually makes it look like FC 26</p>
+      <h2 class="section-head">Seven rules</h2>
+      <p class="lede">
+        Strip away the licences and the polygon count and the identity comes down to seven
+        decisions. Miss any one and the whole thing reads as a knock-off.
+      </p>
+    </div>
+
+    <div class="rules">
+      <div class="rule">
+        <h3>The background is actually black</h3>
+        <p>Not <code>#111</code>, not charcoal. Menus sit on <code>#000000</code> — 96% of sampled background pixels were pure black — with a barely-visible blurred stadium interior behind them at 3–6% luminance. Panels float on the void.</p>
+      </div>
+      <div class="rule">
+        <h3>Colour is earned</h3>
+        <p>The UI stays black, white and one grey until something is focused, live, or team-owned. Only then: the teal ring, the azure stamina line, the green skill pips, the club's own colours in the scoreboard. Nothing is coloured decoratively.</p>
+      </div>
+      <div class="rule">
+        <h3>Light is the interaction</h3>
+        <p>Focus isn't a fill — it's an iridescent light leak escaping above and below the row, cyan through white to warm gold, plus a 1.5px teal outline. It reads as refraction. This is the single most identifying detail in the entire interface.</p>
+      </div>
+      <div class="rule">
+        <h3>Labels whisper, values shout</h3>
+        <p>Sentence-case regular label on the left, <b>BOLD UPPERCASE VALUE</b> on the right. That one rhythm carries the whole menu system. Don't tidy it into consistency — the contrast is the design.</p>
+      </div>
+      <div class="rule">
+        <h3>Cuts, not corners</h3>
+        <p>Where two coloured blocks meet, they meet on a chevron — a <code>&gt;</code> cut at roughly 63°, descended from the triangle above the controlled player's head. Everything else is generously rounded: 10px rows, 20px panels.</p>
+      </div>
+      <div class="rule">
+        <h3>The type leans forward</h3>
+        <p>Display type is a squarish geometric sans at ~9–11° forward oblique, uppercase, tightly tracked, with flat angular terminals. Body type is upright and deliberately plain. The two roles never mix.</p>
+      </div>
+      <div class="rule">
+        <h3>The match layer is television</h3>
+        <p>HUD elements are small, cornered, and imitate a real broadcast graphics package. Total HUD ink stays under 8% of the frame. The pitch is the picture; the interface is the lower-third.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PALETTE ============ -->
+<section>
+  <div class="wrap stack">
+    <div class="head-block">
+      <p class="eyebrow">Sampled per-pixel from menu and HUD captures</p>
+      <h2 class="section-head">Palette</h2>
+      <p class="lede">
+        Ship these as CSS custom properties. Team colours are dynamic tokens supplied per club —
+        which is exactly why the static palette can afford to be this monochrome.
+      </p>
+    </div>
+    <div class="swatches" id="swatches"></div>
+  </div>
+</section>
+
+<!-- ============ TYPE ============ -->
+<section>
+  <div class="wrap stack">
+    <div class="head-block">
+      <p class="eyebrow">F37 Cruyff Sans and Marta are proprietary — these are the free stand-ins</p>
+      <h2 class="section-head">Typography</h2>
+      <p class="lede">
+        Three roles, never blurred. The originals carry triangular incisions at the letterform
+        joins; Chakra Petch's angular cuts are the closest freely-licensed echo of that.
+      </p>
+    </div>
+
+    <div class="specimens">
+      <div class="spec">
+        <div class="sample"><div class="s-display">Matchday</div></div>
+        <div class="info">
+          <b>Display</b>
+          <span>Chakra&nbsp;Petch 700, uppercase, <code>skewX(-9deg)</code>. Logos, mode titles, scorer names, goal cards.</span>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="sample"><div class="s-ui">Multiplayer Camera &nbsp; <b>Tele Broadcast</b></div></div>
+        <div class="info">
+          <b>UI &amp; body</b>
+          <span>Rubik 400 / 500 / 700. Closest free match to the FC&nbsp;26 menu face: geometric skeleton, humanist proportions, softly cut terminals.</span>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="sample"><div class="s-data">0&nbsp;–&nbsp;0 &nbsp; 01:47</div></div>
+        <div class="info">
+          <b>Data</b>
+          <span>Saira&nbsp;Condensed 800, tabular figures. Scorelines, clocks, ratings, stat grids — anything that must stay unambiguous at 14px.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOCUS ROW ============ -->
+<section>
+  <div class="wrap stack">
+    <div class="head-block">
+      <p class="eyebrow">The atom — build this before anything else exists</p>
+      <h2 class="section-head">The focus row</h2>
+      <p class="lede">
+        A settings list, rebuilt to spec. The teal ring lands in 120ms; the iridescent gradient
+        sweeps once across the row's top and bottom edges over 900ms, then rests as a static bleed.
+      </p>
+    </div>
+
+    <div class="demo">
+      <div class="demo-label">
+        <b>Camera options</b>
+        <span>Row height 64–76px · radius 10px · dividers 1px at 10% white</span>
+      </div>
+      <div class="rowlist" id="rowlist">
+        <button class="row" data-focused="false" type="button">
+          <span class="label">UT Competitive Camera</span>
+          <span class="value">Enabled</span>
+        </button>
+        <button class="row" data-focused="false" type="button">
+          <span class="label">Single Player Camera</span>
+          <span class="value">Tactical</span>
+        </button>
+        <button class="row" data-focused="true" type="button">
+          <span class="label">Multiplayer Camera</span>
+          <span class="value cyc"><i>◀</i>Tele Broadcast<i>▶</i></span>
+        </button>
+        <button class="row" data-focused="false" type="button">
+          <span class="label">Height</span>
+          <span class="value slider">
+            <span class="track"><span class="fill" style="width:80%"></span><span class="knob" style="left:80%"></span></span>
+            <span class="num">20</span>
+          </span>
+        </button>
+        <button class="row" data-focused="false" type="button">
+          <span class="label">Zoom</span>
+          <span class="value slider">
+            <span class="track"><span class="fill" style="width:4%"></span><span class="knob" style="left:4%"></span></span>
+            <span class="num">0</span>
+          </span>
+        </button>
+        <button class="row" data-focused="false" type="button">
+          <span class="label">Power Shot Zoom</span>
+          <span class="value">On</span>
+        </button>
+      </div>
+      <p class="hint">Click a row, or use <span class="key">↑</span><span class="key">↓</span> once focused, to replay the sweep.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HUD ============ -->
+<section>
+  <div class="wrap stack">
+    <div class="head-block">
+      <p class="eyebrow">Positions measured from a 2048×1152 capture, normalised to 1080p</p>
+      <h2 class="section-head">Match HUD</h2>
+      <p class="lede">
+        Every element below sits where FC&nbsp;26 puts it, at the size FC&nbsp;26 draws it. The
+        scoreboard's segments are true chevron clip-paths, not skewed rectangles — that seam is
+        the tell. Drag the stamina slider to watch the indicator triangle fade, exactly as
+        FC&nbsp;26's Player Indicator Fade does.
+      </p>
+    </div>
+
+    <div class="pitchstage" id="stage" style="--team-a:#8C1C2B; --team-b:#E6E6E6; --comp:#350137">
+      <div class="lines" aria-hidden="true">
+        <i style="left:50%;top:0;width:2px;height:100%"></i>
+        <i style="left:6%;top:6%;width:2px;height:88%"></i>
+        <i style="right:6%;top:6%;width:2px;height:88%"></i>
+        <i style="left:6%;top:6%;width:88%;height:2px"></i>
+        <i style="left:6%;bottom:6%;width:88%;height:2px"></i>
+        <i style="right:6%;top:26%;width:2px;height:48%"></i>
+        <i style="right:6%;top:26%;width:13%;height:2px"></i>
+        <i style="right:6%;top:74%;width:13%;height:2px"></i>
+      </div>
+      <div class="grade" aria-hidden="true"></div>
+
+      <div class="tri" id="tri" style="left:46%; top:52%"></div>
+
+      <div class="bug">
+        <div class="strip">
+          <div class="seg home"><b>RVN</b></div>
+          <div class="seg score"><span class="sc"><b>0</b><span class="crest"></span><b>0</b></span></div>
+          <div class="seg away"><b>KAL</b></div>
+        </div>
+        <div class="clock" id="clock">01:47</div>
+        <div class="sponsor">SPONSOR</div>
+      </div>
+
+      <div class="radar" aria-hidden="true">
+        <span class="tick tl"></span><span class="tick tr"></span>
+        <span class="tick bl"></span><span class="tick br"></span>
+        <span class="mk" style="left:22%;top:38%"></span>
+        <span class="mk" style="left:34%;top:62%"></span>
+        <span class="mk" style="left:47%;top:30%"></span>
+        <span class="mk" style="left:52%;top:70%"></span>
+        <span class="mk b" style="left:61%;top:44%"></span>
+        <span class="mk b" style="left:70%;top:58%"></span>
+        <span class="mk b" style="left:78%;top:36%"></span>
+        <span class="ball" style="left:56%;top:50%"></span>
+      </div>
+
+      <div class="pbar left" style="--pc:#8C1C2B">
+        <span class="pb-crest"></span>
+        <span class="pb-body">
+          <span class="pb-name">
+            <span class="pb-stam" id="stam" style="width:74%"></span>
+            <span class="pb-num">18</span>
+            <span class="pb-sur">Ferreira</span>
+          </span>
+          <span class="pb-pill">
+            <span class="runner"></span>
+            <span class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span>
+            <span class="divid"></span>
+            <span class="boot off"></span><span class="boot"></span>
+          </span>
+        </span>
+      </div>
+
+      <div class="pbar right" style="--pc:#1C4E8C">
+        <span class="pb-crest"></span>
+        <span class="pb-body">
+          <span class="pb-name">
+            <span class="pb-stam" style="width:91%"></span>
+            <span class="pb-num">9</span>
+            <span class="pb-sur">Okonkwo</span>
+          </span>
+          <span class="pb-pill">
+            <span class="runner"></span>
+            <span class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span>
+            <span class="divid"></span>
+            <span class="boot off"></span><span class="boot"></span>
+          </span>
+        </span>
+      </div>
+    </div>
+
+    <div class="ctl">
+      <label for="stamrange">Stamina</label>
+      <input type="range" id="stamrange" min="0" max="100" value="74" aria-label="Stamina level">
+      <span class="num" id="stamval" style="color:var(--muted)">74</span>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <caption class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Measured HUD geometry at 1920×1080</caption>
+        <thead>
+          <tr><th>Element</th><th>Position</th><th>Size</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Scoreboard strip</strong></td><td class="n">x 90 · y 53</td><td class="n">390 × 70</td><td>Three chevron-seamed segments, 4px outer caps</td></tr>
+          <tr><td><strong>Clock chip</strong></td><td class="n">centred under score</td><td class="n">128 × 38</td><td>Competition dark, rounded bottom only</td></tr>
+          <tr><td><strong>Player bar — left</strong></td><td class="n">x 96 · y 960</td><td class="n">≈380 × 80</td><td>Crest sits outside the bar, no container</td></tr>
+          <tr><td><strong>Player bar — right</strong></td><td class="n">x 1496 · y 960</td><td class="n">≈380 × 80</td><td>Mirrored: name then number</td></tr>
+          <tr><td><strong>Radar</strong></td><td class="n">x 751 · y 825</td><td class="n">400 × 204</td><td>Corner ticks, not a full outline</td></tr>
+          <tr><td><strong>Competition mark</strong></td><td class="n">x 1689 · y 33</td><td class="n">211 × 183</td><td>White at ~55% opacity</td></tr>
+          <tr><td><strong>Stamina line</strong></td><td class="n">bar top edge</td><td class="n">3px</td><td><code>#34B6DA</code>, depletes right to left</td></tr>
+          <tr><td><strong>Indicator triangle</strong></td><td class="n">18px above head</td><td class="n">26px wide</td><td>Team primary, fades with stamina</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MOTION ============ -->
+<section>
+  <div class="wrap stack">
+    <div class="head-block">
+      <p class="eyebrow">Four curves cover the entire interface</p>
+      <h2 class="section-head">Motion</h2>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Name</th><th>Duration</th><th>Easing</th><th>Used for</th></tr></thead>
+        <tbody>
+          <tr><td><strong>snap</strong></td><td class="n">180ms</td><td class="n">cubic-bezier(.20,.80,.20,1)</td><td>Focus moves, tab switches</td></tr>
+          <tr><td><strong>push</strong></td><td class="n">240ms</td><td class="n">cubic-bezier(.16,1,.30,1)</td><td>Screen enter and exit — translate ±24px, never cross-dissolve</td></tr>
+          <tr><td><strong>settle</strong></td><td class="n">320ms</td><td class="n">cubic-bezier(.34,1.28,.64,1)</td><td>Score bug slide-in, with overshoot</td></tr>
+          <tr><td><strong>sweep</strong></td><td class="n">900ms</td><td class="n">linear</td><td>The iridescent travel on focus land</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">
+      Goal moment: a chevron wipe in the scorer's team colour travelling left to right over 520ms,
+      the scoreline slamming in at 1.4× before settling to 1.0×. Tile focus: <code>scale(1.03)</code>
+      plus <code>brightness(1.08)</code>, with the tile art parallaxing 6px against its frame.
+    </p>
+  </div>
+</section>
+
+<!-- ============ SCOPE ============ -->
+<section>
+  <div class="wrap stack">
+    <div class="head-block">
+      <p class="eyebrow">Aesthetic fidelity is the primary metric; depth is the secondary one</p>
+      <h2 class="section-head">Build it in three tiers</h2>
+      <p class="lede">
+        A gorgeous shallow build beats an ugly deep one. Don't start a tier until the previous
+        one passes its exit criterion.
+      </p>
+    </div>
+    <div class="tiers">
+      <div class="tier">
+        <span class="n">Tier one</span>
+        <h3>The Shell</h3>
+        <ul>
+          <li>Boot sequence, hub, squad, settings, match setup</li>
+          <li>Full presentation layer: walkout, kickoff, HUD, replays, full-time</li>
+          <li>Playable 5-a-side on simplified physics</li>
+        </ul>
+        <p class="exit">Exit: a stranger sees a screenshot and asks if it's the new FC.</p>
+      </div>
+      <div class="tier">
+        <span class="n">Tier two</span>
+        <h3>The Football</h3>
+        <ul>
+          <li>11v11, offside, fouls, set pieces</li>
+          <li>Ball physics with spin and drag; momentum dribbling</li>
+          <li>Team AI: shape, pressing lines, off-ball runs</li>
+          <li>Stamina, cards, subs, in-match tactics</li>
+        </ul>
+        <p class="exit">Exit: a match is worth replaying for its own sake.</p>
+      </div>
+      <div class="tier">
+        <span class="n">Tier three</span>
+        <h3>The Modes</h3>
+        <ul>
+          <li>Career: season sim, table, transfers, training</li>
+          <li>Collection mode: packs, card items, chemistry</li>
+          <li>Cup brackets, local multiplayer</li>
+        </ul>
+        <p class="exit">Exit: there's a reason to come back tomorrow.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ IP ============ -->
+<section>
+  <div class="wrap stack">
+    <div class="head-block">
+      <p class="eyebrow">The one hard constraint</p>
+      <h2 class="section-head">Original identity only</h2>
+    </div>
+    <p class="lede">
+      Everything in the FC&nbsp;26 look that can be lawfully reproduced is <em>design language</em>:
+      the layout grammar, the palette, the geometry, the motion curves, the typographic scale.
+      Everything that can't is <em>identity</em>: club names, crests, kits, player names and
+      likenesses, competition marks, the EA and FC logos, and the F37 typefaces themselves.
+    </p>
+    <p class="note">
+      So the world gets generated: 80–120 fictional clubs across 4–6 fictional leagues, each with a
+      procedural SVG crest, a kit, a three-letter code and a colour pair; fictional player names
+      drawn from per-nation banks. Because nothing can be licensed, generation quality
+      <em>is</em> content quality — and no placeholder ever survives to production, because there
+      are no placeholders.
+    </p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="filecard">
+      <span class="fn">PROMPT.md</span>
+      <span class="fd">The full build prompt — scope, tokens, screen-by-screen specs, tech stack, build order and acceptance criteria — lives in the repository root, ready to hand back.</span>
+    </div>
+    <p>
+      <strong style="color:var(--muted)">Provenance.</strong> Colour values and geometry were derived
+      by per-pixel sampling and bounding-box measurement of publicly published FC&nbsp;26 imagery —
+      EA press assets, Steam store captures, and press-outlet screenshots. No source imagery is
+      redistributed here or in the repository; the aesthetic is encoded numerically so the
+      originals aren't needed to build against it.
+    </p>
+    <p>
+      This page is a specification for an original game. It is not affiliated with, endorsed by,
+      or derived from any asset belonging to Electronic Arts.
+    </p>
+  </div>
+</footer>
+
+<script>
+/* ---------- aurora hero ---------- */
+(function(){
+  const c = document.getElementById('aurora');
+  if(!c) return;
+  const ctx = c.getContext('2d');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const blobs = [
+    {x:.12,y:.22,r:.42,c:'#14D6A0'},
+    {x:.82,y:.18,r:.38,c:'#1FC8C8'},
+    {x:.68,y:.78,r:.46,c:'#2A6FE0'},
+    {x:.30,y:.86,r:.34,c:'#9AE83A'},
+    {x:.50,y:.46,r:.30,c:'#1FC8C8'}
+  ];
+  let w=0,h=0,t=0,raf=null;
+
+  function size(){
+    const dpr = Math.min(window.devicePixelRatio||1, 2);
+    const rect = c.parentElement.getBoundingClientRect();
+    w = Math.max(1, Math.round(rect.width));
+    h = Math.max(1, Math.round(rect.height));
+    c.width = w*dpr; c.height = h*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle = '#0B0E1A'; ctx.fillRect(0,0,w,h);
+    const s = Math.max(w,h);
+    ctx.globalCompositeOperation = 'lighter';
+    blobs.forEach(function(b,i){
+      const dx = Math.sin(t*0.00013 + i*1.7)*0.05;
+      const dy = Math.cos(t*0.00011 + i*2.3)*0.05;
+      const x = (b.x+dx)*w, y = (b.y+dy)*h, r = b.r*s*0.62;
+      const g = ctx.createRadialGradient(x,y,0,x,y,r);
+      g.addColorStop(0, b.c+'66');
+      g.addColorStop(.55, b.c+'22');
+      g.addColorStop(1, b.c+'00');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    });
+    ctx.globalCompositeOperation = 'source-over';
+    /* fine contour lines — the topographic overlay on FC brand surfaces */
+    ctx.strokeStyle = 'rgba(255,255,255,.045)'; ctx.lineWidth = 1;
+    for(let i=0;i<26;i++){
+      ctx.beginPath();
+      const base = (i/26)*h*1.5 - h*0.25;
+      for(let x=0;x<=w;x+=14){
+        const y = base + Math.sin((x/w)*5.2 + i*0.42 + t*0.00008)*22 + Math.sin((x/w)*11 + i)*7;
+        x===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function loop(ts){ t = ts; draw(); raf = requestAnimationFrame(loop); }
+
+  size(); draw();
+  if(!reduce) raf = requestAnimationFrame(loop);
+  let to;
+  window.addEventListener('resize', function(){
+    clearTimeout(to);
+    to = setTimeout(function(){ size(); draw(); }, 120);
+  });
+})();
+
+/* ---------- palette swatches ---------- */
+(function(){
+  const tokens = [
+    ['--void','#000000','Page background','Yes, pure black'],
+    ['--raised','#0D0E12','Raised background','Beneath panels'],
+    ['--panel','#1D1D27','Detail panel','Indigo-slate'],
+    ['--panel-alt','#252A40','Secondary panel','Modals, tooltips'],
+    ['--row-focus','#12141F','Focused row fill','Dark navy'],
+    ['--text','#FFFFFF','Primary text','Values, headings'],
+    ['--body','#D8DAE2','Body copy','Panel prose'],
+    ['--muted','#8A8C93','Muted text','Inactive tabs'],
+    ['--focus','#2EC4B6','Focus ring','The interaction colour'],
+    ['--stamina','#34B6DA','Stamina line','3px, HUD only'],
+    ['--positive','#00E36B','Positive','Skill pips, online dots'],
+    ['--warn','#FFC53D','Warning','Ball marker, cautions'],
+    ['--danger','#E8455F','Danger','Cards, errors'],
+    ['--ink','#0B0E1A','Brand ink','Behind aurora art'],
+    ['--aurora-1','#14D6A0','Aurora green','Brand surface'],
+    ['--aurora-2','#1FC8C8','Aurora teal','Brand surface'],
+    ['--aurora-3','#2A6FE0','Aurora blue','Brand surface'],
+    ['--aurora-4','#9AE83A','Aurora lime','Brand surface'],
+    ['--pitch-light','#5C7C34','Mow stripe light','Pitch'],
+    ['--pitch-dark','#4B6B29','Mow stripe dark','Pitch']
+  ];
+  const host = document.getElementById('swatches');
+  if(!host) return;
+  host.innerHTML = tokens.map(function(t){
+    const border = (t[1]==='#000000') ? 'box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);' : '';
+    return '<div class="sw">'
+      + '<span class="chip" style="background:'+t[1]+';'+border+'"></span>'
+      + '<span class="meta">'
+      + '<span class="name">'+t[2]+'</span>'
+      + '<span class="hex">'+t[1]+'</span>'
+      + '<span class="role">'+t[0]+' · '+t[3]+'</span>'
+      + '</span></div>';
+  }).join('');
+})();
+
+/* ---------- focus row ---------- */
+(function(){
+  const list = document.getElementById('rowlist');
+  if(!list) return;
+  const rows = Array.prototype.slice.call(list.querySelectorAll('.row'));
+
+  function focusRow(i){
+    rows.forEach(function(r){ r.setAttribute('data-focused','false'); });
+    const r = rows[i];
+    /* force the sweep animation to restart */
+    r.offsetWidth;
+    r.setAttribute('data-focused','true');
+    r.focus({preventScroll:true});
+  }
+
+  rows.forEach(function(r,i){
+    r.addEventListener('click', function(){ focusRow(i); });
+    r.addEventListener('keydown', function(e){
+      if(e.key === 'ArrowDown'){ e.preventDefault(); focusRow(Math.min(i+1, rows.length-1)); }
+      if(e.key === 'ArrowUp'){ e.preventDefault(); focusRow(Math.max(i-1, 0)); }
+    });
+  });
+})();
+
+/* ---------- HUD: clock + stamina fade ---------- */
+(function(){
+  const clock = document.getElementById('clock');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(clock && !reduce){
+    let s = 107;
+    setInterval(function(){
+      s++;
+      const m = String(Math.floor(s/60)).padStart(2,'0');
+      const ss = String(s%60).padStart(2,'0');
+      clock.textContent = m+':'+ss;
+    }, 1000);
+  }
+
+  const range = document.getElementById('stamrange');
+  const stam  = document.getElementById('stam');
+  const tri   = document.getElementById('tri');
+  const val   = document.getElementById('stamval');
+  if(!range) return;
+
+  function apply(){
+    const v = Number(range.value);
+    stam.style.width = v + '%';
+    /* Player Indicator Fade: the triangle dims as stamina drains */
+    tri.style.opacity = String(0.18 + (v/100) * 0.82);
+    val.textContent = v;
+  }
+  range.addEventListener('input', apply);
+  apply();
+})();
+</script>

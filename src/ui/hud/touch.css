@@ -1,0 +1,112 @@
+/* ============================================================================
+   On-screen controls. Only drawn on a touch device.
+   ============================================================================ */
+
+.touch {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  /* The layer itself is inert; only the stick zone and the buttons take input,
+     so the HUD underneath stays readable and nothing swallows a stray tap. */
+  pointer-events: none;
+  touch-action: none;
+}
+
+/* The whole left half is the stick — a fixed one means looking down to find it. */
+.touch__stickzone {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 46%;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.touch__ring,
+.touch__knob {
+  position: fixed;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.touch__ring {
+  width: calc(112px * var(--ui-scale));
+  height: calc(112px * var(--ui-scale));
+  border: calc(2px * var(--ui-scale)) solid var(--fc-hairline-strong);
+  background: var(--fc-radar-fill);
+}
+
+.touch__knob {
+  width: calc(52px * var(--ui-scale));
+  height: calc(52px * var(--ui-scale));
+  background: var(--fc-keycap);
+  opacity: 0.75;
+}
+
+.touch__buttons {
+  position: absolute;
+  right: calc(28px * var(--ui-scale));
+  bottom: calc(28px * var(--ui-scale));
+  display: flex;
+  align-items: flex-end;
+  gap: calc(14px * var(--ui-scale));
+  pointer-events: none;
+}
+
+/* Laid out as a diamond, the way a pad's face buttons are. */
+.touch__cluster {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: calc(10px * var(--ui-scale));
+  align-items: end;
+}
+
+.touch__btn {
+  pointer-events: auto;
+  touch-action: none;
+  border-radius: 50%;
+  background: var(--fc-hud-fill);
+  border: calc(1.5px * var(--ui-scale)) solid var(--fc-hairline-strong);
+  color: var(--fc-text);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: calc(12px * var(--ui-scale));
+  letter-spacing: 0.04em;
+  width: calc(66px * var(--ui-scale));
+  height: calc(66px * var(--ui-scale));
+  transition: transform var(--snap) var(--ease-snap), background var(--snap) var(--ease-snap);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.touch__btn[data-down='true'] {
+  transform: scale(0.92);
+  background: var(--fc-focus-soft);
+  border-color: var(--fc-focus);
+}
+
+/* Shoot is the one you reach for under pressure, so it is the biggest and
+   sits where the thumb rests. */
+.touch__shoot {
+  width: calc(84px * var(--ui-scale));
+  height: calc(84px * var(--ui-scale));
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  border-color: var(--fc-positive);
+}
+
+.touch__pass { grid-column: 1; grid-row: 2; }
+.touch__switch { grid-column: 1; grid-row: 1; }
+
+.touch__sprint {
+  width: calc(60px * var(--ui-scale));
+  height: calc(60px * var(--ui-scale));
+  font-size: calc(11px * var(--ui-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .touch__btn { transition: none; }
+}

@@ -1,0 +1,192 @@
+/* ============================================================================
+   Settings screen — PROMPT.md §4.2, the reference build.
+   ============================================================================ */
+
+.settings {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  color: var(--fc-text);
+  animation: fc-push-in var(--push) var(--ease-push) both;
+}
+
+/* ---- Top bar ------------------------------------------------------------- */
+
+.settings__top {
+  display: flex;
+  align-items: flex-end;
+  gap: calc(26px * var(--ui-scale));
+  padding: calc(46px * var(--ui-scale)) calc(var(--margin-x) * var(--ui-scale))
+    calc(18px * var(--ui-scale));
+}
+
+.settings__gear {
+  width: calc(34px * var(--ui-scale));
+  height: calc(34px * var(--ui-scale));
+  color: var(--fc-text-muted);
+  flex: 0 0 auto;
+}
+
+.settings__rule {
+  width: 1px;
+  align-self: stretch;
+  background: var(--fc-hairline-strong);
+  margin-bottom: calc(2px * var(--ui-scale));
+}
+
+.settings__tabwrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Bumper hints float above the strip, as in the reference. */
+.settings__bumpers {
+  display: flex;
+  gap: calc(8px * var(--ui-scale));
+  margin-bottom: calc(10px * var(--ui-scale));
+  padding-left: calc(4px * var(--ui-scale));
+}
+
+.settings__tabs {
+  display: flex;
+  gap: calc(36px * var(--ui-scale));
+  overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(90deg, var(--fc-void) 88%, transparent 100%);
+}
+
+.settings__tab {
+  font-size: calc(var(--fs-tab) * var(--ui-scale));
+  font-weight: 400;
+  color: var(--fc-text-muted);
+  transition: color var(--snap) var(--ease-snap), font-weight var(--snap) var(--ease-snap);
+  flex: 0 0 auto;
+}
+
+.settings__tab[data-active='true'] {
+  color: var(--fc-text);
+  font-weight: 700;
+}
+
+/* ---- Body ---------------------------------------------------------------- */
+
+.settings__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.72fr) auto;
+  gap: calc(var(--gutter) * var(--ui-scale));
+  padding: 0 calc(var(--margin-x) * var(--ui-scale));
+  min-height: 0;
+}
+
+.settings__list {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: calc(40px * var(--ui-scale));
+  scrollbar-width: none;
+}
+
+.settings__list::-webkit-scrollbar { display: none; }
+
+.settings__section + .settings__section {
+  margin-top: calc(46px * var(--ui-scale));
+}
+
+.settings__detail {
+  align-self: start;
+  height: min(100%, calc(800px * var(--ui-scale)));
+  overflow: hidden;
+  display: flex;
+}
+
+.settings__detail > * { flex: 1 1 auto; }
+
+/* ---- Right rail ---------------------------------------------------------- */
+
+.settings__rail {
+  display: flex;
+  align-items: stretch;
+  gap: calc(22px * var(--ui-scale));
+  padding-bottom: calc(30px * var(--ui-scale));
+}
+
+.settings__railmeta {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(12px * var(--ui-scale));
+  min-width: calc(150px * var(--ui-scale));
+}
+
+.settings__railitem {
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  font-weight: 400;
+  color: var(--fc-text-dim);
+  text-align: left;
+  transition: color var(--snap) var(--ease-snap);
+}
+
+.settings__railitem[data-active='true'] {
+  color: var(--fc-text);
+  font-weight: 700;
+}
+
+.settings__stick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(4px * var(--ui-scale));
+  margin-top: calc(14px * var(--ui-scale));
+  color: var(--fc-text-muted);
+  font-size: calc(11px * var(--ui-scale));
+}
+
+.settings__stickring {
+  width: calc(24px * var(--ui-scale));
+  height: calc(24px * var(--ui-scale));
+  border-radius: 50%;
+  border: 1.5px solid var(--fc-text-muted);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: calc(11px * var(--ui-scale));
+}
+
+/* ---- Bottom action bar --------------------------------------------------- */
+
+.settings__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(24px * var(--ui-scale));
+  padding: calc(20px * var(--ui-scale)) calc(var(--margin-x) * var(--ui-scale))
+    calc(28px * var(--ui-scale));
+}
+
+.settings__actions-left,
+.settings__actions-right {
+  display: flex;
+  align-items: center;
+  gap: calc(26px * var(--ui-scale));
+}
+
+.settings__status {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--ui-scale));
+  color: var(--fc-text-muted);
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  font-weight: 500;
+}
+
+.settings__online {
+  color: var(--fc-positive);
+  font-family: var(--font-data);
+  font-weight: 800;
+}
+
+:root:not([data-layout='wide']) .settings__body { grid-template-columns: minmax(0, 1fr); }
+:root:not([data-layout='wide']) .settings__detail,
+:root:not([data-layout='wide']) .settings__rail { display: none; }
