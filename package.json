@@ -11,6 +11,7 @@
     "lint:tokens": "node scripts/lint-tokens.mjs",
     "test": "vitest run",
     "check": "npm run lint:tokens && npm run typecheck && vitest run",
+    "build:artifact": "node scripts/build-artifact.mjs",
     "shots": "node scripts/shots.mjs",
     "shot:match": "node scripts/shot-match.mjs",
     "fonts": "node scripts/fetch-fonts.mjs"

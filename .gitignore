@@ -11,3 +11,4 @@ shots/
 *.tsbuildinfo
 src/**/*.js
 /vite.config.js
+dist-artifact/

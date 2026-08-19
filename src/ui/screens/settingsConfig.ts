@@ -260,7 +260,10 @@ export const SETTINGS_TABS: SettingsTab[] = [
             id: 'glyphSet',
             label: 'Button Glyphs',
             options: ['PlayStation', 'Xbox', 'Keyboard'],
-            value: 0,
+            // Keyboard until a pad turns up: showing a cross and a circle to
+            // somebody holding a keyboard tells them nothing about what to
+            // press. Connecting a controller switches this automatically.
+            value: 2,
             body: 'Which button icons the interface draws. Detected automatically when a controller is connected.',
           },
           {

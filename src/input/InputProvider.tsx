@@ -17,6 +17,7 @@ import {
   type GlyphSet,
   type NavAction,
 } from './actions';
+import { useSettings } from '@/state/settings';
 
 type Handler = (action: NavAction) => void;
 
@@ -34,9 +35,19 @@ const InputContext = createContext<InputContextValue | null>(null);
 
 const DIRECTIONS = new Set<NavAction>(['up', 'down', 'left', 'right']);
 
+/** The glyph set the saved settings ask for, or the keyboard. */
+function savedGlyphSet(): GlyphSet {
+  const chosen = useSettings.getState().value('glyphSet');
+  if (chosen === 'PlayStation') return 'playstation';
+  if (chosen === 'Xbox') return 'xbox';
+  return 'keyboard';
+}
+
 export function InputProvider({ children }: { children: ReactNode }) {
   const handlers = useRef<Handler[]>([]);
-  const [glyphSet, setGlyphSet] = useState<GlyphSet>('playstation');
+  // Starts from the saved choice rather than a fixed default, so a set picked
+  // in settings survives a reload without having to be picked again.
+  const [glyphSet, setGlyphSet] = useState<GlyphSet>(savedGlyphSet);
   const [padConnected, setPadConnected] = useState(false);
 
   const emit = useCallback((action: NavAction) => {
