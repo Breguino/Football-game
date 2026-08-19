@@ -4,6 +4,7 @@ import { StadiumBackdrop } from '@/ui/primitives/StadiumBackdrop';
 import { SettingsScreen } from '@/ui/screens/SettingsScreen';
 import { HubScreen } from '@/ui/screens/HubScreen';
 import { SquadScreen } from '@/ui/screens/SquadScreen';
+import { ClubScreen } from '@/ui/screens/ClubScreen';
 import { useSettings } from '@/state/settings';
 
 // Three.js is most of the bundle and only the match needs it, so the menus
@@ -12,7 +13,7 @@ const MatchScreen = lazy(() =>
   import('@/ui/screens/MatchScreen').then((m) => ({ default: m.MatchScreen })),
 );
 
-export type Screen = 'hub' | 'settings' | 'squad' | 'match';
+export type Screen = 'hub' | 'settings' | 'squad' | 'club' | 'match';
 
 export function App() {
   return (
@@ -33,6 +34,8 @@ function Router() {
       return <SettingsScreen onExit={toHub} />;
     case 'squad':
       return <SquadScreen onExit={toHub} />;
+    case 'club':
+      return <ClubScreen onExit={toHub} />;
     case 'match':
       return (
         <Suspense fallback={<div className="fc-booting">Walking out…</div>}>

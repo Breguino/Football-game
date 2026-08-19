@@ -4,6 +4,7 @@ import { Crest } from '@/ui/primitives/Crest';
 import { TileArt } from '@/ui/primitives/TileArt';
 import { useNavigation } from '@/input/InputProvider';
 import { useWorld } from '@/state/world';
+import { useCollection } from '@/state/collection';
 import type { NavAction } from '@/input/actions';
 import type { Screen } from '@/App';
 import './hub.css';
@@ -26,7 +27,12 @@ interface Rail {
 
 const TABS = ['For You', 'Online', 'vs. CPU', 'vs. Friend'] as const;
 
-function railsFor(tab: number, clubName: string, opponentName: string): Rail[] {
+function railsFor(
+  tab: number,
+  clubName: string,
+  opponentName: string,
+  itemCount: number,
+): Rail[] {
   if (tab === 1) {
     return [
       {
@@ -74,6 +80,14 @@ function railsFor(tab: number, clubName: string, opponentName: string): Rail[] {
       tiles: [
         { id: 'kickoff', name: 'Kick Off', note: `${clubName} vs ${opponentName}`, badge: { text: 'Ready' }, goes: 'match', wide: true },
         { id: 'squad', name: 'Squad', note: 'Shape, roles and the starting eleven', goes: 'squad' },
+        {
+          id: 'club',
+          name: 'Club',
+          note: itemCount > 0 ? `${itemCount} items collected` : 'Open your first pack',
+          // The badge is an invitation, so it goes away once you have taken it.
+          ...(itemCount === 0 ? { badge: { text: 'New' } } : {}),
+          goes: 'club',
+        },
         { id: 'season', name: 'Season', note: 'Matchday 1 of 34' },
       ],
     },
@@ -107,14 +121,17 @@ export function HubScreen({ onNavigate }: { onNavigate: (screen: Screen) => void
   const opponent = world.clubs[opponentClubId]!;
   const league = world.leagues.find((l) => l.id === club.leagueId);
 
+  const coins = useCollection((s) => s.coins);
+  const itemCount = useCollection((s) => s.items.length);
+
   const [tab, setTab] = useState(0);
   const [railIndex, setRailIndex] = useState(0);
   const [tileIndex, setTileIndex] = useState(0);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const rails = useMemo(
-    () => railsFor(tab, club.name, opponent.name),
-    [tab, club.name, opponent.name],
+    () => railsFor(tab, club.name, opponent.name, itemCount),
+    [tab, club.name, opponent.name, itemCount],
   );
 
   const rail = rails[railIndex];
@@ -188,7 +205,7 @@ export function HubScreen({ onNavigate }: { onNavigate: (screen: Screen) => void
         </div>
         <div className="hub__account">
           <span className="hub__coins">
-            {(148_250).toLocaleString('en-GB')}
+            {coins.toLocaleString('en-GB')}
             <small>Credits</small>
           </span>
           <span className="hub__coins">

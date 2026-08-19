@@ -89,6 +89,35 @@
   --fc-pip-off:     #3A3A3A;
   --fc-keycap:      #C9CBD1;
 
+  /* ---- Player items ----------------------------------------------------
+     Card printings. Each tier is a three-stop metal: shadow, face, highlight,
+     with an ink that stays readable on the face. */
+  --item-bronze-dark:  #6E3D22;
+  --item-bronze-face:  #A9663B;
+  --item-bronze-light: #D9A276;
+  --item-bronze-ink:   #2B160B;
+
+  --item-silver-dark:  #6E7480;
+  --item-silver-face:  #A8AEB8;
+  --item-silver-light: #E2E6EC;
+  --item-silver-ink:   #23262C;
+
+  --item-gold-dark:    #B07C1E;
+  --item-gold-face:    #C9962F;
+  --item-gold-light:   #F2D98A;
+  --item-gold-ink:     #33260A;
+
+  /* Special editions print on near-black with metal trim. */
+  --item-special-dark:  #07080C;
+  --item-special-face:  #14161E;
+  --item-special-light: #2A2E3C;
+  --item-special-ink:   #F3EBD2;
+
+  --item-hero-trim:    #E8C468;
+  --item-totw-trim:    #E3E7EE;
+  /* The specular sweep that runs across a focused card. */
+  --card-shine:        rgba(255, 255, 255, 0.42);
+
   /* ---- Team colours — overridden per club at runtime ------------------- */
   --team-primary:   #8C1C2B;
   --team-secondary: #F1D9A8;

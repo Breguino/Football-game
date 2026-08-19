@@ -5,3 +5,9 @@ dist/
 .DS_Store
 coverage/
 shots/
+
+# tsc -b once wrote these next to the sources, where the bundler
+# resolved them ahead of the .ts and served stale code.
+*.tsbuildinfo
+src/**/*.js
+/vite.config.js

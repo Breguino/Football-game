@@ -28,6 +28,9 @@ const SHOTS = [
   ['hub', []],
   ['hub-online', ['KeyE']],
   ['squad', ['KeyQ', 'ArrowRight', 'Enter']],
+  ['club', ['KeyQ', 'ArrowRight', 'ArrowRight', 'Enter']],
+  // Buying a pack takes over the screen, so the reveal is its own shot.
+  ['reveal', ['KeyQ', 'ArrowRight', 'ArrowRight', 'Enter', 'Enter']],
   ['settings', ['Escape', 'Tab']],
 ];
 
@@ -39,9 +42,13 @@ for (const [name, keys] of SHOTS) {
   await page.waitForTimeout(700);
   await page.screenshot({ path: `${outDir}/${name}.png` });
   console.log(`shot: ${name}`);
-  // Return to the hub between shots.
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(320);
+  // Return to the hub between shots. A pack reveal has to be walked to its
+  // end before Escape means anything, so press through whatever is left.
+  for (let i = 0; i < 9; i += 1) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(140);
+  }
+  await page.waitForTimeout(260);
 }
 
 console.log(errors.length ? `CONSOLE ERRORS:\n${errors.join('\n')}` : 'no console errors');

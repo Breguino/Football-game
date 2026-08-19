@@ -1,0 +1,269 @@
+/* ============================================================================
+   Club — the collection. Store on the left, what you own on the right, and a
+   full-screen reveal that takes over when a pack is opened.
+   ============================================================================ */
+
+.club {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  color: var(--fc-text);
+  animation: fc-push-in var(--push) var(--ease-push) both;
+}
+
+.club__top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: calc(22px * var(--ui-scale));
+  padding: calc(44px * var(--ui-scale)) calc(var(--margin-x) * var(--ui-scale))
+    calc(22px * var(--ui-scale));
+}
+
+.club__title {
+  margin: calc(6px * var(--ui-scale)) 0 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: calc(var(--fs-display-l) * var(--ui-scale));
+  line-height: 1;
+  transform: var(--display-slant);
+  transform-origin: left bottom;
+}
+
+.club__wallet {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1;
+}
+
+.club__coins {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(40px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+  /* The balance is the one number on this screen that changes as you act, so
+     it is worth animating when it does. */
+  transition: color var(--push) var(--ease-push);
+}
+
+.club__coinlabel {
+  margin-top: calc(6px * var(--ui-scale));
+  font-size: calc(var(--fs-micro) * var(--ui-scale));
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}
+
+.club__body {
+  display: grid;
+  grid-template-columns: minmax(0, 0.46fr) minmax(0, 1fr);
+  gap: calc(var(--gutter) * var(--ui-scale));
+  padding: 0 calc(var(--margin-x) * var(--ui-scale));
+  min-height: 0;
+}
+
+/* ---- Store --------------------------------------------------------------- */
+
+.club__store {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--ui-scale));
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding-bottom: calc(30px * var(--ui-scale));
+}
+
+.club__store::-webkit-scrollbar { display: none; }
+
+.pack {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'name  price'
+    'desc  price';
+  align-items: center;
+  gap: calc(4px * var(--ui-scale)) calc(18px * var(--ui-scale));
+  padding: calc(18px * var(--ui-scale)) calc(22px * var(--ui-scale));
+  border-radius: var(--r-row);
+  background: var(--fc-panel);
+  color: var(--fc-text);
+  text-align: left;
+  font-family: var(--font-ui);
+  transition: transform var(--snap) var(--ease-snap), background var(--snap) var(--ease-snap);
+}
+
+.pack__name {
+  grid-area: name;
+  font-weight: 700;
+  font-size: calc(var(--fs-label) * var(--ui-scale));
+}
+
+.pack__desc {
+  grid-area: desc;
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  color: var(--fc-text-muted);
+}
+
+.pack__price {
+  grid-area: price;
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(26px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+}
+
+/* A pack you cannot afford still shows its price — it is the reason to keep
+   playing, not something to hide. */
+.pack[data-affordable='false'] { opacity: 0.5; }
+.pack[data-affordable='false'] .pack__price { color: var(--fc-danger); }
+
+.pack[data-focused='true'] {
+  background: var(--fc-row-focus);
+  transform: translateX(calc(var(--chevron-run) * 0.5));
+}
+
+.pack__leak {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(3px * var(--ui-scale));
+  background: var(--fc-focus);
+  animation: fc-settle-in var(--snap) var(--ease-snap) both;
+}
+
+/* ---- Owned items --------------------------------------------------------- */
+
+.club__items {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.club__itemshead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.club__count {
+  margin-left: calc(10px * var(--ui-scale));
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--fc-focus);
+}
+
+.club__empty {
+  margin: calc(24px * var(--ui-scale)) 0 0;
+  font-size: calc(var(--fs-body) * var(--ui-scale));
+  color: var(--fc-text-muted);
+}
+
+.club__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(186px * var(--ui-scale)), 1fr));
+  gap: calc(26px * var(--ui-scale)) calc(20px * var(--ui-scale));
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* Cards scale and tilt on focus, so the track needs room for the overflow
+     rather than clipping the focused card at the edge of the scroller. */
+  padding: calc(14px * var(--ui-scale)) calc(10px * var(--ui-scale))
+    calc(36px * var(--ui-scale));
+  margin: 0 calc(-10px * var(--ui-scale));
+  align-content: start;
+  justify-items: center;
+}
+
+.club__grid::-webkit-scrollbar { display: none; }
+
+.club__actions {
+  display: flex;
+  align-items: center;
+  gap: calc(26px * var(--ui-scale));
+  padding: calc(18px * var(--ui-scale)) calc(var(--margin-x) * var(--ui-scale))
+    calc(28px * var(--ui-scale));
+}
+
+/* ============================================================================
+   Reveal — one item at a time, over everything else.
+   ============================================================================ */
+
+.reveal {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  background: var(--fc-scrim);
+  backdrop-filter: blur(calc(14px * var(--ui-scale)));
+  animation: fc-push-in var(--push) var(--ease-push) both;
+}
+
+/* The light behind the card. It is what makes a pull feel like an event. */
+.reveal__aurora {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 46% 52% at 50% 46%,
+    var(--fc-backdrop-glow) 0%,
+    var(--fc-backdrop-clear) 72%
+  );
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.reveal__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(24px * var(--ui-scale));
+}
+
+/* Keyed on the item id, so each card in a pull plays this from the start. */
+.reveal__card {
+  animation: reveal-in var(--settle) var(--ease-settle) both;
+}
+
+@keyframes reveal-in {
+  from { opacity: 0; transform: translateY(34px) scale(0.88); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.reveal__count {
+  margin: 0;
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}
+
+.reveal__next {
+  position: absolute;
+  right: calc(var(--margin-x) * var(--ui-scale));
+  bottom: calc(var(--margin-y) * var(--ui-scale));
+  display: inline-flex;
+  align-items: center;
+  gap: calc(12px * var(--ui-scale));
+  padding: calc(12px * var(--ui-scale)) calc(22px * var(--ui-scale));
+  border-radius: var(--r-pill);
+  background: var(--fc-panel);
+  color: var(--fc-text);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: calc(var(--fs-body) * var(--ui-scale));
+}
+
+@media (max-width: 1100px) {
+  .club__body { grid-template-columns: minmax(0, 1fr); }
+  .club__store { flex: 0 0 auto; }
+}
