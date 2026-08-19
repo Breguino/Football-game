@@ -235,6 +235,21 @@
 
 .fc-hint__label { color: var(--fc-text); }
 
+/* A hint that is also the control. On a desktop it stays a caption with a
+   pressable area; on a phone it is the only way some actions exist. */
+.fc-hint--pressable {
+  font-family: var(--font-ui);
+  border-radius: var(--r-pill);
+  padding: calc(6px * var(--ui-scale)) calc(10px * var(--ui-scale));
+  margin: calc(-6px * var(--ui-scale)) calc(-10px * var(--ui-scale));
+  transition: background var(--snap) var(--ease-snap);
+}
+
+.fc-hint--pressable:hover,
+.fc-hint--pressable:focus-visible {
+  background: var(--fc-hud-fill);
+}
+
 /* ---------------------------------------------------------------------------
    Chevron seam — the 63° cut where two coloured blocks meet.
    --------------------------------------------------------------------------- */

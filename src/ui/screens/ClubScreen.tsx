@@ -484,6 +484,7 @@ export function ClubScreen({
           swapping={mode.kind === 'swapping'}
           discardHint={discardHint}
           canPlay={lineup.complete}
+          press={onAction}
         />
       </footer>
     </div>
@@ -495,28 +496,32 @@ function ActionHints({
   swapping,
   discardHint,
   canPlay,
+  press,
 }: {
   tab: Tab;
   swapping: boolean;
   discardHint: string;
   canPlay: boolean;
+  /** Makes each hint a real control, which is how these are reached by touch. */
+  press: (action: NavAction) => void;
 }) {
+  const on = (action: NavAction) => () => press(action);
   if (swapping) {
     return (
       <>
-        <Hint action="confirm" label="Give them the shirt" />
-        <Hint action="altAction" label="Pick automatically" />
-        <Hint action="back" label="Cancel" />
+        <Hint action="confirm" label="Give them the shirt" onPress={on('confirm')} />
+        <Hint action="altAction" label="Pick automatically" onPress={on('altAction')} />
+        <Hint action="back" label="Cancel" onPress={on('back')} />
       </>
     );
   }
   if (tab === 'Squad') {
     return (
       <>
-        <Hint action="confirm" label="Change player" />
-        <Hint action="altAction" label="Pick automatically" />
-        {canPlay && <Hint action="menu" label="Play a match" />}
-        <Hint action="back" label="Back" />
+        <Hint action="confirm" label="Change player" onPress={on('confirm')} />
+        <Hint action="altAction" label="Pick automatically" onPress={on('altAction')} />
+        {canPlay && <Hint action="menu" label="Play a match" onPress={on('menu')} />}
+        <Hint action="back" label="Back" onPress={on('back')} />
       </>
     );
   }
@@ -524,26 +529,26 @@ function ActionHints({
     return (
       <>
         {canPlay ? (
-          <Hint action="confirm" label="Kick off" />
+          <Hint action="confirm" label="Kick off" onPress={on('confirm')} />
         ) : (
           <Hint action="confirm" label="Need a full eleven" />
         )}
-        <Hint action="back" label="Back" />
+        <Hint action="back" label="Back" onPress={on('back')} />
       </>
     );
   }
   if (tab === 'Store') {
     return (
       <>
-        <Hint action="confirm" label="Open pack" />
-        <Hint action="back" label="Back" />
+        <Hint action="confirm" label="Open pack" onPress={on('confirm')} />
+        <Hint action="back" label="Back" onPress={on('back')} />
       </>
     );
   }
   return (
     <>
-      <Hint action="altAction" label={discardHint} />
-      <Hint action="back" label="Back" />
+      <Hint action="altAction" label={discardHint} onPress={on('altAction')} />
+      <Hint action="back" label="Back" onPress={on('back')} />
     </>
   );
 }

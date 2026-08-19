@@ -86,6 +86,37 @@
 
 :root[data-layout='phone'] .hub__account { gap: calc(14px * var(--ui-scale)); }
 
+/* The wordmark, the crest, the club and the league do not fit across a phone.
+   The crest and the club name carry the identity; the wordmark is the one
+   that can go, because the game is already open. */
+:root[data-layout='phone'] .hub__wordmark { display: none; }
+
+:root[data-layout='phone'] .hub__brand { min-width: 0; }
+
+:root[data-layout='phone'] .hub__club,
+:root[data-layout='phone'] .hub__league {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Four tabs are wider than a phone, so the row scrolls inside itself rather
+   than pushing the document sideways. */
+:root[data-layout='phone'] .hub__tabs,
+:root[data-layout='phone'] .club__tabs {
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+}
+
+:root[data-layout='phone'] .hub__tabs::-webkit-scrollbar,
+:root[data-layout='phone'] .club__tabs::-webkit-scrollbar { display: none; }
+
+:root[data-layout='phone'] .hub__tab,
+:root[data-layout='phone'] .club__tab {
+  flex: 0 0 auto;
+}
+
 /* ---- Two-pane screens -----------------------------------------------------
    Squad, Club and the fixture slate are all a main pane and an aside. On a
    phone they stack, and the aside comes first: the summary is what you want
@@ -184,6 +215,34 @@
 :root[data-layout='phone-landscape'] .hub__tab {
   padding: calc(10px * var(--ui-scale)) calc(4px * var(--ui-scale));
   min-height: 44px;
+}
+
+/* On a phone the action bar is the control, not a caption: the glyph names a
+   key nobody has, and the target has to take a fingertip. */
+:root[data-layout='phone'] .fc-hint--pressable,
+:root[data-layout='phone-landscape'] .fc-hint--pressable {
+  min-height: 44px;
+  padding: calc(8px * var(--ui-scale)) calc(14px * var(--ui-scale));
+  margin: 0;
+  background: var(--fc-hud-fill);
+  border: 1px solid var(--fc-hairline);
+}
+
+:root[data-layout='phone'] .fc-hint--pressable .fc-glyph,
+:root[data-layout='phone-landscape'] .fc-hint--pressable .fc-glyph {
+  display: none;
+}
+
+/* A plain hint has no control behind it, so on a phone it is only noise. */
+:root[data-layout='phone'] .fc-hint:not(.fc-hint--pressable),
+:root[data-layout='phone-landscape'] .fc-hint:not(.fc-hint--pressable) {
+  display: none;
+}
+
+:root[data-layout='phone'] .club__actions,
+:root[data-layout='phone'] .hub__actions {
+  flex-wrap: wrap;
+  gap: calc(10px * var(--ui-scale));
 }
 
 /* Controller glyph rows are meaningless without a controller or a keyboard. */

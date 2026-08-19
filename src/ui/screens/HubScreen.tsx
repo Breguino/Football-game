@@ -287,11 +287,15 @@ export function HubScreen({ onNavigate }: { onNavigate: (screen: Screen) => void
 
       <footer className="hub__actions">
         <div className="hub__actions-left">
-          <Hint action="confirm" label={tile?.goes ? `Enter ${tile.name}` : 'Select'} />
-          <Hint action="menu" label="Settings" />
+          <Hint
+            action="confirm"
+            label={tile?.goes ? `Enter ${tile.name}` : 'Select'}
+            onPress={() => onAction('confirm')}
+          />
+          <Hint action="menu" label="Settings" onPress={() => onAction('menu')} />
         </div>
         <div className="hub__actions-right">
-          <Hint action="tabNext" label="Switch tab" />
+          <Hint action="tabNext" label="Switch tab" onPress={() => onAction('tabNext')} />
         </div>
       </footer>
     </div>

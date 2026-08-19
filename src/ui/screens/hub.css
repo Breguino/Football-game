@@ -7,7 +7,12 @@
   z-index: 1;
   height: 100%;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  /* Four rows, not three: the tab nav and the rail body are separate children
+     (the wrapper around them is display:contents). With three, the 1fr landed
+     on the nav instead of the body — invisible on a desktop, where there is
+     spare height for it to soak up, and on a phone it collapsed the nav to six
+     pixels and the tabs spilled out over the masthead. */
+  grid-template-rows: auto auto 1fr auto;
   color: var(--fc-text);
   animation: fc-push-in var(--push) var(--ease-push) both;
 }
