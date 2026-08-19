@@ -5,7 +5,16 @@
 
 export type SettingRow =
   | { kind: 'cycler'; id: string; label: string; options: string[]; value: number; body: string }
-  | { kind: 'slider'; id: string; label: string; max: number; value: number; body: string }
+  | {
+      kind: 'slider';
+      id: string;
+      label: string;
+      /** Lowest selectable value. Defaults to 0. */
+      min?: number;
+      max: number;
+      value: number;
+      body: string;
+    }
   | { kind: 'action'; id: string; label: string; value: string; body: string };
 
 export interface SettingSection {
@@ -41,6 +50,9 @@ export const SETTINGS_TABS: SettingsTab[] = [
             kind: 'slider',
             id: 'halfLength',
             label: 'Half Length',
+            // A zero-minute half is over before it starts, and the clock reads
+            // its progress as a fraction of the half — which at zero is NaN.
+            min: 1,
             max: 20,
             value: 6,
             body: 'Minutes per half. Six is the competitive default; longer halves give the simulation room to produce a real shape to the game.',

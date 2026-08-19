@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Crest } from '@/ui/primitives/Crest';
 import { Hint } from '@/ui/primitives/Glyph';
 import type { Club } from '@/world/generate';
+import type { Reward } from '@/world/rewards';
 import { clockText, possessionPercent, type MatchState, type SimPlayer } from '@/sim/match';
 import { MENTALITIES, MENTALITY_LABEL } from '@/sim/ai';
 import { PITCH_LENGTH, PITCH_WIDTH } from '@/render/pitch';
@@ -26,6 +27,8 @@ export interface HudProps {
   showNameBars: boolean;
   indicatorFade: boolean;
   onFinish: () => void;
+  /** What the match paid, when it was played with the collection. */
+  reward?: Reward;
 }
 
 export function MatchHud({
@@ -39,6 +42,7 @@ export function MatchHud({
   showNameBars,
   indicatorFade,
   onFinish,
+  reward,
 }: HudProps) {
   const controlled = state.players[state.controlledIndex];
   const opponent = nearestOpponent(state);
@@ -126,6 +130,7 @@ export function MatchHud({
 
       {(state.phase === 'halftime' || state.phase === 'fulltime') && (
         <BreakOverlay
+          reward={reward}
           state={state}
           home={home}
           away={away}
@@ -288,12 +293,14 @@ function BreakOverlay({
   away,
   title,
   onFinish,
+  reward,
 }: {
   state: MatchState;
   home: Club;
   away: Club;
   title: string;
   onFinish: () => void;
+  reward?: Reward | undefined;
 }) {
   const [homePossession, awayPossession] = possessionPercent(state);
   const shotTotal = Math.max(1, state.shots[0] + state.shots[1]);
@@ -349,6 +356,23 @@ function BreakOverlay({
           />
         </div>
 
+        {state.phase === 'fulltime' && reward && (
+          <div className="payout">
+            <h3 className="payout__head">Credits earned</h3>
+            <ul className="payout__lines">
+              <PayLine label="Appearance" value={reward.base} />
+              {reward.result > 0 && <PayLine label="Result" value={reward.result} />}
+              {reward.goals > 0 && <PayLine label="Goals" value={reward.goals} />}
+              {reward.cleanSheet > 0 && <PayLine label="Clean sheet" value={reward.cleanSheet} />}
+              {reward.underdog > 0 && <PayLine label="Beat a better side" value={reward.underdog} />}
+            </ul>
+            <p className="payout__total">
+              <span>Total</span>
+              <b>{reward.total.toLocaleString('en-GB')}</b>
+            </p>
+          </div>
+        )}
+
         {state.phase === 'fulltime' && (
           <div className="breakcard__hint">
             <button type="button" onClick={onFinish} className="fc-hint">
@@ -358,6 +382,15 @@ function BreakOverlay({
         )}
       </div>
     </div>
+  );
+}
+
+function PayLine({ label, value }: { label: string; value: number }) {
+  return (
+    <li className="payout__line">
+      <span>{label}</span>
+      <b>{value.toLocaleString('en-GB')}</b>
+    </li>
   );
 }
 

@@ -1,38 +1,64 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PlayerCard } from '@/ui/primitives/PlayerCard';
 import { Hint, Glyph } from '@/ui/primitives/Glyph';
+import { SquadPitch, BenchStrip } from './SquadPitch';
 import { useNavigation } from '@/input/InputProvider';
 import { useWorld } from '@/state/world';
 import { useCollection } from '@/state/collection';
 import { bestOf, discardValue, PACK_TYPES, type PackType, type PlayerItem } from '@/world/items';
+import { FORMATION } from '@/world/lineup';
 import type { NavAction } from '@/input/actions';
 import type { Club, Player } from '@/world/generate';
 import './club.css';
 
 /**
- * The collection: packs to open on the left, what you own on the right.
+ * The collection, in three views: the side you field, the packs you can buy,
+ * and everything you own.
  *
- * A pack reveal takes over the screen, one item at a time, because the reveal
- * *is* the mode — a list that simply grew by seven would not be worth opening.
+ * They are tabs rather than one screen because each wants the whole of the
+ * d-pad — a formation grid, a price list and a card grid all read up and down
+ * differently, and sharing them would mean one of the three navigating badly.
  */
+
+const TABS = ['Squad', 'Store', 'Items'] as const;
+type Tab = (typeof TABS)[number];
 
 /** Resolves an item back to the player and club it was printed from. */
 type Lookup = (item: PlayerItem) => { player: Player; club: Club } | null;
 
 type Mode =
   | { kind: 'browsing' }
+  | { kind: 'swapping'; slot: number }
   | { kind: 'revealing'; items: PlayerItem[]; index: number; pack: PackType };
 
-export function ClubScreen({ onExit }: { onExit: () => void }) {
+export function ClubScreen({ onExit, onPlay }: { onExit: () => void; onPlay: () => void }) {
   const world = useWorld((s) => s.world);
+  const userClubId = useWorld((s) => s.userClubId);
   const coins = useCollection((s) => s.coins);
   const items = useCollection((s) => s.items);
+  const pinned = useCollection((s) => s.pinned);
   const buy = useCollection((s) => s.buy);
   const discard = useCollection((s) => s.discard);
+  const pin = useCollection((s) => s.pin);
+  const lineupOf = useCollection((s) => s.lineup);
 
+  const club = world.clubs[userClubId]!;
+
+  // A card always wears the club the player was printed from, the way it does
+  // in the items grid — a squad of one kit would hide that it is a collection.
+  const clubOf = useCallback(
+    (item: PlayerItem): Club => world.clubs[item.clubId] ?? club,
+    [world, club],
+  );
+  // Recomputed whenever the collection or the picked shirts change.
+  const lineup = useMemo(() => lineupOf(), [lineupOf, items, pinned]);
+
+  const [tab, setTab] = useState<Tab>('Squad');
   const [mode, setMode] = useState<Mode>({ kind: 'browsing' });
+  const [slotIndex, setSlotIndex] = useState(9);
   const [packIndex, setPackIndex] = useState(1);
   const [cardIndex, setCardIndex] = useState(0);
+  const [benchIndex, setBenchIndex] = useState(0);
 
   /** Items newest first, so a fresh pull is at the front. */
   const owned = useMemo(() => [...items].reverse(), [items]);
@@ -44,13 +70,22 @@ export function ClubScreen({ onExit }: { onExit: () => void }) {
     ? `Discard for ${discardValue(focusedItem).toLocaleString('en-GB')}`
     : 'Discard item';
 
+  const lookup = useCallback<Lookup>(
+    (item) => {
+      const found = world.clubs[item.clubId];
+      const player = found?.squad.find((p) => p.id === item.playerId);
+      return found && player ? { player, club: found } : null;
+    },
+    [world],
+  );
+
   // A collection outgrows the screen after two packs, so the grid has to
   // follow the cursor — otherwise everything past the second row is
   // unreachable on a pad.
   useEffect(() => {
     const node = gridRef.current?.querySelector<HTMLElement>(`[data-card-index="${cardIndex}"]`);
     node?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [cardIndex]);
+  }, [cardIndex, tab]);
 
   // Discarding the last item in the grid would otherwise leave the cursor
   // pointing past the end.
@@ -72,15 +107,6 @@ export function ClubScreen({ onExit }: { onExit: () => void }) {
     return cells.length;
   }, []);
 
-  const lookup = useCallback<Lookup>(
-    (item) => {
-      const club = world.clubs[item.clubId];
-      const player = club?.squad.find((p) => p.id === item.playerId);
-      return club && player ? { player, club } : null;
-    },
-    [world],
-  );
-
   const openSelected = useCallback(() => {
     const pack = PACK_TYPES[packIndex];
     if (!pack) return;
@@ -98,6 +124,14 @@ export function ClubScreen({ onExit }: { onExit: () => void }) {
     });
   }, []);
 
+  /** Everyone eligible to take a shirt: the bench, and whoever holds it now. */
+  const swapCandidates = useMemo(() => {
+    if (mode.kind !== 'swapping') return [];
+    const current = lineup.eleven[mode.slot];
+    const held = current ? [{ item: current.item, player: current.player }] : [];
+    return [...held, ...lineup.bench];
+  }, [mode, lineup]);
+
   const onAction = useCallback(
     (action: NavAction) => {
       if (mode.kind === 'revealing') {
@@ -106,41 +140,118 @@ export function ClubScreen({ onExit }: { onExit: () => void }) {
         return;
       }
 
+      if (mode.kind === 'swapping') {
+        switch (action) {
+          case 'left':
+            setBenchIndex((i) => Math.max(0, i - 1));
+            break;
+          case 'right':
+            setBenchIndex((i) => Math.min(swapCandidates.length - 1, i + 1));
+            break;
+          case 'confirm': {
+            const chosen = swapCandidates[benchIndex];
+            if (chosen) pin(mode.slot, chosen.item.id);
+            setMode({ kind: 'browsing' });
+            break;
+          }
+          case 'altAction':
+            // Hand the shirt back to the automatic pick.
+            pin(mode.slot, null);
+            setMode({ kind: 'browsing' });
+            break;
+          case 'back':
+            setMode({ kind: 'browsing' });
+            break;
+          default:
+            break;
+        }
+        return;
+      }
+
+      if (action === 'tabPrev' || action === 'tabNext') {
+        const step = action === 'tabNext' ? 1 : -1;
+        setTab((t) => TABS[Math.max(0, Math.min(TABS.length - 1, TABS.indexOf(t) + step))]!);
+        return;
+      }
+      if (action === 'back') {
+        onExit();
+        return;
+      }
+      if (action === 'menu') {
+        if (lineup.complete) onPlay();
+        return;
+      }
+
+      if (tab === 'Squad') {
+        switch (action) {
+          case 'left':
+            setSlotIndex((i) => Math.max(0, i - 1));
+            break;
+          case 'right':
+            setSlotIndex((i) => Math.min(FORMATION.length - 1, i + 1));
+            break;
+          case 'up':
+            setSlotIndex((i) => Math.max(0, i - 3));
+            break;
+          case 'down':
+            setSlotIndex((i) => Math.min(FORMATION.length - 1, i + 3));
+            break;
+          case 'confirm':
+            setBenchIndex(0);
+            setMode({ kind: 'swapping', slot: slotIndex });
+            break;
+          case 'altAction':
+            pin(slotIndex, null);
+            break;
+          default:
+            break;
+        }
+        return;
+      }
+
+      if (tab === 'Store') {
+        switch (action) {
+          case 'up':
+            setPackIndex((i) => Math.max(0, i - 1));
+            break;
+          case 'down':
+            setPackIndex((i) => Math.min(PACK_TYPES.length - 1, i + 1));
+            break;
+          case 'confirm':
+            openSelected();
+            break;
+          default:
+            break;
+        }
+        return;
+      }
+
       switch (action) {
-        case 'up':
-          setPackIndex((i) => Math.max(0, i - 1));
-          break;
-        case 'down':
-          setPackIndex((i) => Math.min(PACK_TYPES.length - 1, i + 1));
-          break;
         case 'left':
           setCardIndex((i) => Math.max(0, i - 1));
           break;
         case 'right':
           setCardIndex((i) => Math.min(owned.length - 1, i + 1));
           break;
-        case 'tabPrev':
+        case 'up':
           setCardIndex((i) => Math.max(0, i - columns()));
           break;
-        case 'tabNext':
+        case 'down':
           setCardIndex((i) => Math.min(owned.length - 1, i + columns()));
-          break;
-        case 'confirm':
-          openSelected();
           break;
         case 'altAction': {
           const item = owned[cardIndex];
           if (item) discard(item.id, discardValue(item));
           break;
         }
-        case 'back':
-          onExit();
-          break;
         default:
           break;
       }
     },
-    [mode, owned, cardIndex, openSelected, discard, advance, columns, onExit],
+    [
+      mode, tab, owned, cardIndex, slotIndex, benchIndex, swapCandidates, lineup,
+      openSelected, discard, advance, columns, pin, onExit, onPlay,
+    ],
   );
 
   useNavigation(onAction);
@@ -162,60 +273,214 @@ export function ClubScreen({ onExit }: { onExit: () => void }) {
         </div>
       </header>
 
-      <div className="club__body">
-        <section className="club__store">
-          <h2 className="fc-section-head">Store</h2>
-          {PACK_TYPES.map((pack, i) => (
-            <PackRow
-              key={pack.id}
-              pack={pack}
-              focused={i === packIndex}
-              affordable={coins >= pack.price}
-              onFocus={() => setPackIndex(i)}
-              onSelect={openSelected}
-            />
-          ))}
-        </section>
+      <nav className="club__tabs" aria-label="Club sections">
+        <span className="club__bumpers">
+          <Glyph action="tabPrev" />
+          <Glyph action="tabNext" />
+        </span>
+        {TABS.map((label) => (
+          <button
+            key={label}
+            type="button"
+            className="club__tab"
+            data-active={label === tab}
+            aria-current={label === tab || undefined}
+            onClick={() => setTab(label)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
 
-        <section className="club__items">
-          <div className="club__itemshead">
-            <h2 className="fc-section-head">
-              Your items <span className="club__count">{items.length}</span>
-            </h2>
-          </div>
+      {tab === 'Squad' && (
+        <div className="club__body club__body--squad">
+          <SquadPitch
+            lineup={lineup}
+            clubOf={clubOf}
+            focusedSlot={slotIndex}
+            onFocusSlot={setSlotIndex}
+            onSelectSlot={(slot) => {
+              setBenchIndex(0);
+              setMode({ kind: 'swapping', slot });
+            }}
+          />
 
-          {owned.length === 0 ? (
-            <p className="club__empty">Nothing yet. Open a pack.</p>
-          ) : (
-            <div className="club__grid" ref={gridRef}>
-              {owned.map((item, i) => {
-                const found = lookup(item);
-                if (!found) return null;
-                return (
-                  <div key={item.id} data-card-index={i}>
-                    <PlayerCard
-                      item={item}
-                      player={found.player}
-                      club={found.club}
-                      width={186}
-                      focused={i === cardIndex}
-                      onFocus={() => setCardIndex(i)}
-                    />
-                  </div>
-                );
-              })}
+          <aside className="club__aside">
+            <div className="club__ratingblock">
+              <span className="club__ratingnum">{lineup.complete ? lineup.rating : '—'}</span>
+              <span className="club__coinlabel">Squad rating</span>
             </div>
-          )}
-        </section>
-      </div>
+
+            <dl className="club__facts">
+              <div>
+                <dt>Fielded</dt>
+                <dd>
+                  {lineup.eleven.length} / {FORMATION.length}
+                </dd>
+              </div>
+              <div>
+                <dt>Out of position</dt>
+                <dd data-warn={lineup.outOfPosition > 0}>{lineup.outOfPosition}</dd>
+              </div>
+              <div>
+                <dt>Substitutes</dt>
+                <dd>{lineup.bench.length}</dd>
+              </div>
+            </dl>
+
+            <p className="club__note">
+              {lineup.complete
+                ? 'Ready to play. Better items win you better matches.'
+                : `Short of a full side — you need ${
+                    FORMATION.length - lineup.eleven.length
+                  } more item${FORMATION.length - lineup.eleven.length === 1 ? '' : 's'}.`}
+            </p>
+
+            <h2 className="fc-section-head">Substitutes</h2>
+            <BenchStrip
+              bench={lineup.bench}
+              clubOf={clubOf}
+              focusedIndex={-1}
+              onFocus={() => {}}
+              onSelect={() => {}}
+              emptyLabel="Nobody spare. Open a pack."
+            />
+          </aside>
+        </div>
+      )}
+
+      {tab === 'Store' && (
+        <div className="club__body club__body--store">
+          <section className="club__store">
+            {PACK_TYPES.map((pack, i) => (
+              <PackRow
+                key={pack.id}
+                pack={pack}
+                focused={i === packIndex}
+                affordable={coins >= pack.price}
+                onFocus={() => setPackIndex(i)}
+                onSelect={openSelected}
+              />
+            ))}
+          </section>
+          <aside className="club__aside">
+            <p className="club__note">
+              Every pack costs more than the items in it are worth to sell. That is the point:
+              you buy them for the card you want, not for the credits back.
+            </p>
+          </aside>
+        </div>
+      )}
+
+      {tab === 'Items' && (
+        <div className="club__body club__body--items">
+          <section className="club__items">
+            <div className="club__itemshead">
+              <h2 className="fc-section-head">
+                Your items <span className="club__count">{items.length}</span>
+              </h2>
+            </div>
+
+            {owned.length === 0 ? (
+              <p className="club__empty">Nothing yet. Open a pack.</p>
+            ) : (
+              <div className="club__grid" ref={gridRef}>
+                {owned.map((item, i) => {
+                  const found = lookup(item);
+                  if (!found) return null;
+                  return (
+                    <div key={item.id} data-card-index={i}>
+                      <PlayerCard
+                        item={item}
+                        player={found.player}
+                        club={found.club}
+                        width={186}
+                        focused={i === cardIndex}
+                        onFocus={() => setCardIndex(i)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {mode.kind === 'swapping' && (
+        <SwapPicker
+          slot={FORMATION[mode.slot] ?? '—'}
+          candidates={swapCandidates}
+          clubOf={clubOf}
+          focusedIndex={benchIndex}
+          onFocus={setBenchIndex}
+          onChoose={(item) => {
+            pin(mode.slot, item.id);
+            setMode({ kind: 'browsing' });
+          }}
+          onAuto={() => {
+            pin(mode.slot, null);
+            setMode({ kind: 'browsing' });
+          }}
+          onCancel={() => setMode({ kind: 'browsing' })}
+        />
+      )}
 
       <footer className="club__actions">
-        <Hint action="confirm" label="Open pack" />
-        <Hint action="altAction" label={discardHint} />
-        <Hint action="tabNext" label="Next row" />
-        <Hint action="back" label="Back" />
+        <ActionHints
+          tab={tab}
+          swapping={mode.kind === 'swapping'}
+          discardHint={discardHint}
+          canPlay={lineup.complete}
+        />
       </footer>
     </div>
+  );
+}
+
+function ActionHints({
+  tab,
+  swapping,
+  discardHint,
+  canPlay,
+}: {
+  tab: Tab;
+  swapping: boolean;
+  discardHint: string;
+  canPlay: boolean;
+}) {
+  if (swapping) {
+    return (
+      <>
+        <Hint action="confirm" label="Give them the shirt" />
+        <Hint action="altAction" label="Pick automatically" />
+        <Hint action="back" label="Cancel" />
+      </>
+    );
+  }
+  if (tab === 'Squad') {
+    return (
+      <>
+        <Hint action="confirm" label="Change player" />
+        <Hint action="altAction" label="Pick automatically" />
+        {canPlay && <Hint action="menu" label="Play a match" />}
+        <Hint action="back" label="Back" />
+      </>
+    );
+  }
+  if (tab === 'Store') {
+    return (
+      <>
+        <Hint action="confirm" label="Open pack" />
+        <Hint action="back" label="Back" />
+      </>
+    );
+  }
+  return (
+    <>
+      <Hint action="altAction" label={discardHint} />
+      <Hint action="back" label="Back" />
+    </>
   );
 }
 
@@ -249,6 +514,52 @@ function PackRow({
       <span className="pack__desc">{pack.description}</span>
       <span className="pack__price">{pack.price.toLocaleString('en-GB')}</span>
     </button>
+  );
+}
+
+/** Choosing who wears a shirt. */
+function SwapPicker({
+  slot,
+  candidates,
+  clubOf,
+  focusedIndex,
+  onFocus,
+  onChoose,
+  onAuto,
+  onCancel,
+}: {
+  slot: string;
+  candidates: { item: PlayerItem; player: Player }[];
+  clubOf: (item: PlayerItem) => Club;
+  focusedIndex: number;
+  onFocus: (index: number) => void;
+  onChoose: (item: PlayerItem) => void;
+  onAuto: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="swap" onClick={onCancel}>
+      <div className="swap__panel" onClick={(e) => e.stopPropagation()}>
+        <header className="swap__head">
+          <p className="t-eyebrow">Who plays</p>
+          <h2 className="swap__slot">{slot}</h2>
+        </header>
+
+        <BenchStrip
+          bench={candidates}
+          clubOf={clubOf}
+          focusedIndex={focusedIndex}
+          onFocus={onFocus}
+          onSelect={onChoose}
+          emptyLabel="Nobody else to pick. Open a pack."
+        />
+
+        <button type="button" className="swap__auto" onClick={onAuto}>
+          <Glyph action="altAction" />
+          <span>Pick automatically</span>
+        </button>
+      </div>
+    </div>
   );
 }
 

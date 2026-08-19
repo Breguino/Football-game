@@ -4,11 +4,15 @@ import { MatchHud } from '@/ui/hud/MatchHud';
 import { ReplayChrome, TeamSheet, Walkout } from '@/ui/hud/Presentation';
 import { useWorld } from '@/state/world';
 import { useSettings } from '@/state/settings';
+import { useCollection } from '@/state/collection';
 import { useNavigation } from '@/input/InputProvider';
 import { createMatch, step, TICK, type Intent, type MatchState } from '@/sim/match';
 import { ReplayBuffer, ReplayPlayer } from '@/sim/replay';
 import { matchSquad, startingEleven } from '@/world/generate';
+import { collectionClub } from '@/world/lineup';
+import { rewardFor, type Reward } from '@/world/rewards';
 import { resolveKitClash } from '@/world/colour';
+import type { Lineup } from '@/App';
 import type { CameraPreset } from '@/render/camera';
 import type { NavAction } from '@/input/actions';
 import './match.css';
@@ -30,14 +34,31 @@ type Stage = 'walkout' | 'teamsheet' | 'playing' | 'replay';
 const REPLAY_SECONDS = 4.5;
 const REPLAY_SPEED = 0.4;
 
-export function MatchScreen({ onExit }: { onExit: () => void }) {
+export function MatchScreen({
+  onExit,
+  lineup = 'club',
+}: {
+  onExit: () => void;
+  lineup?: Lineup;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const world = useWorld((s) => s.world);
   const userClubId = useWorld((s) => s.userClubId);
   const opponentClubId = useWorld((s) => s.opponentClubId);
   const settingsValue = useSettings((s) => s.value);
+  const collectionLineup = useCollection((s) => s.lineup);
+  const earn = useCollection((s) => s.earn);
 
-  const home = world.clubs[userClubId]!;
+  const clubIdentity = world.clubs[userClubId]!;
+  // Playing from the Club screen fields the collection under the club's own
+  // name and kit; playing from the hub fields the club as generated.
+  const home = useMemo(
+    () =>
+      lineup === 'collection'
+        ? collectionClub(clubIdentity, collectionLineup())
+        : clubIdentity,
+    [lineup, clubIdentity, collectionLineup],
+  );
   const awayClub = world.clubs[opponentClubId]!;
   // Fixtures resolve kit clashes before kickoff; so does this.
   const away = useMemo(
@@ -57,6 +78,27 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
   stageRef.current = stage;
 
   const [snapshot, setSnapshot] = useState<MatchState | null>(null);
+  const [reward, setReward] = useState<Reward | null>(null);
+  const paidRef = useRef(false);
+
+  // Paid once, at the whistle, and only when the collection was the side that
+  // played — a hub kick-off is an exhibition and earns nothing.
+  useEffect(() => {
+    if (lineup !== 'collection' || paidRef.current) return;
+    if (snapshot?.phase !== 'fulltime') return;
+    paidRef.current = true;
+
+    const earned = rewardFor({
+      scored: snapshot.score[0],
+      conceded: snapshot.score[1],
+      rating: home.overall,
+      opponentRating: away.overall,
+    });
+    setReward(earned);
+    earn(earned.total);
+    // Deps are primitives: the snapshot is a fresh object 15 times a second,
+    // so depending on it (or on its score array) would re-run this all match.
+  }, [snapshot?.phase, snapshot?.score[0], snapshot?.score[1], lineup, home.overall, away.overall, earn]);
 
   // Settings are read once at kickoff; changing them mid-match is not a thing.
   const optionsRef = useRef<SceneOptions>({
@@ -354,6 +396,7 @@ export function MatchScreen({ onExit }: { onExit: () => void }) {
           showNameBars={on('playerNames')}
           indicatorFade={on('indicatorFade')}
           onFinish={onExit}
+          {...(reward ? { reward } : {})}
         />
       )}
 

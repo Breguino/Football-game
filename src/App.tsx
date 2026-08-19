@@ -15,6 +15,9 @@ const MatchScreen = lazy(() =>
 
 export type Screen = 'hub' | 'settings' | 'squad' | 'club' | 'match';
 
+/** Which side the player takes into a match. */
+export type Lineup = 'club' | 'collection';
+
 export function App() {
   return (
     <InputProvider>
@@ -27,6 +30,9 @@ export function App() {
 
 function Router() {
   const [screen, setScreen] = useState<Screen>('hub');
+  // A match started from the Club screen fields the collection; one started
+  // from the hub fields the generated club.
+  const [lineup, setLineup] = useState<Lineup>('club');
   const toHub = () => setScreen('hub');
 
   switch (screen) {
@@ -35,16 +41,31 @@ function Router() {
     case 'squad':
       return <SquadScreen onExit={toHub} />;
     case 'club':
-      return <ClubScreen onExit={toHub} />;
+      return (
+        <ClubScreen
+          onExit={toHub}
+          onPlay={() => {
+            setLineup('collection');
+            setScreen('match');
+          }}
+        />
+      );
     case 'match':
       return (
         <Suspense fallback={<div className="fc-booting">Walking out…</div>}>
-          <MatchScreen onExit={toHub} />
+          <MatchScreen onExit={toHub} lineup={lineup} />
         </Suspense>
       );
     case 'hub':
     default:
-      return <HubScreen onNavigate={setScreen} />;
+      return (
+        <HubScreen
+          onNavigate={(next) => {
+            if (next === 'match') setLineup('club');
+            setScreen(next);
+          }}
+        />
+      );
   }
 }
 

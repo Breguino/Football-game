@@ -100,8 +100,19 @@ export function Cycler({
 }
 
 /** A 0–max slider. Track filled off-white, rest grey, white round knob. */
-export function Slider({ value, max = 20 }: { value: number; max?: number }) {
-  const pct = max === 0 ? 0 : Math.round((value / max) * 100);
+export function Slider({
+  value,
+  min = 0,
+  max = 20,
+}: {
+  value: number;
+  min?: number;
+  max?: number;
+}) {
+  // Measured from the floor, so a slider that starts at 1 shows empty at 1
+  // rather than already part-filled.
+  const span = max - min;
+  const pct = span <= 0 ? 0 : Math.round(((value - min) / span) * 100);
   return (
     <span className="fc-slider">
       <span className="fc-slider__track">

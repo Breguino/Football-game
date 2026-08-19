@@ -658,3 +658,65 @@
   color: var(--fc-text);
   white-space: nowrap;
 }
+
+/* ============================================================================
+   What the match paid. Shown on the full-time card when the collection played.
+   ============================================================================ */
+
+.payout {
+  margin-top: calc(22px * var(--ui-scale));
+  padding-top: calc(18px * var(--ui-scale));
+  border-top: 1px solid var(--fc-hairline);
+}
+
+.payout__head {
+  margin: 0 0 calc(12px * var(--ui-scale));
+  font-size: calc(11.5px * var(--ui-scale));
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}
+
+.payout__lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: calc(6px * var(--ui-scale));
+}
+
+.payout__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  color: var(--fc-text-body);
+}
+
+.payout__line b {
+  font-family: var(--font-data);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.payout__total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: calc(14px * var(--ui-scale)) 0 0;
+  padding-top: calc(12px * var(--ui-scale));
+  border-top: 1px solid var(--fc-hairline);
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}
+
+.payout__total b {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(30px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+  color: var(--fc-positive);
+}

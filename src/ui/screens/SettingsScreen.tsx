@@ -238,7 +238,9 @@ function RowValue({
   focused: boolean;
   nudge: 'left' | 'right' | null;
 }) {
-  if (row.kind === 'slider') return <Slider value={row.value} max={row.max} />;
+  if (row.kind === 'slider') {
+    return <Slider value={row.value} min={row.min ?? 0} max={row.max} />;
+  }
   if (row.kind === 'cycler' && focused) {
     return <Cycler value={rowValueText(row)} nudge={nudge} />;
   }

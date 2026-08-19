@@ -59,7 +59,7 @@ export const useSettings = create<SettingsState>((set, getState) => ({
                   return { ...row, value: next };
                 }
                 if (row.kind === 'slider') {
-                  const next = Math.min(Math.max(row.value + delta, 0), row.max);
+                  const next = Math.min(Math.max(row.value + delta, row.min ?? 0), row.max);
                   return { ...row, value: next };
                 }
                 return row;

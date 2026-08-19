@@ -8,7 +8,7 @@
   z-index: 1;
   height: 100%;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto 1fr auto;
   color: var(--fc-text);
   animation: fc-push-in var(--push) var(--ease-push) both;
 }
@@ -59,12 +59,118 @@
   color: var(--fc-text-muted);
 }
 
+/* ---- Tabs ---------------------------------------------------------------- */
+
+.club__tabs {
+  display: flex;
+  align-items: center;
+  gap: calc(28px * var(--ui-scale));
+  padding: 0 calc(var(--margin-x) * var(--ui-scale)) calc(16px * var(--ui-scale));
+}
+
+.club__bumpers {
+  display: inline-flex;
+  gap: calc(6px * var(--ui-scale));
+  margin-right: calc(4px * var(--ui-scale));
+}
+
+.club__tab {
+  position: relative;
+  padding: calc(6px * var(--ui-scale)) 0;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: calc(var(--fs-tab) * var(--ui-scale));
+  color: var(--fc-text-muted);
+  transition: color var(--snap) var(--ease-snap);
+}
+
+.club__tab[data-active='true'] { color: var(--fc-text); }
+
+.club__tab[data-active='true']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(2px * var(--ui-scale));
+  background: var(--fc-focus);
+  animation: fc-settle-in var(--snap) var(--ease-snap) both;
+}
+
 .club__body {
   display: grid;
   grid-template-columns: minmax(0, 0.46fr) minmax(0, 1fr);
   gap: calc(var(--gutter) * var(--ui-scale));
   padding: 0 calc(var(--margin-x) * var(--ui-scale));
   min-height: 0;
+}
+
+.club__body--squad { grid-template-columns: minmax(0, 1fr) minmax(0, 0.44fr); }
+.club__body--store { grid-template-columns: minmax(0, 0.52fr) minmax(0, 1fr); }
+.club__body--items { grid-template-columns: minmax(0, 1fr); }
+
+/* ---- Squad summary ------------------------------------------------------- */
+
+.club__aside {
+  display: flex;
+  flex-direction: column;
+  gap: calc(18px * var(--ui-scale));
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding-bottom: calc(24px * var(--ui-scale));
+}
+
+.club__aside::-webkit-scrollbar { display: none; }
+
+.club__ratingblock {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.club__ratingnum {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(62px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+}
+
+.club__facts {
+  margin: 0;
+  display: grid;
+  gap: calc(9px * var(--ui-scale));
+  padding: calc(16px * var(--ui-scale)) 0;
+  border-top: 1px solid var(--fc-hairline);
+  border-bottom: 1px solid var(--fc-hairline);
+}
+
+.club__facts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.club__facts dt {
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  color: var(--fc-text-muted);
+}
+
+.club__facts dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(19px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+}
+
+.club__facts dd[data-warn='true'] { color: var(--fc-warn); }
+
+.club__note {
+  margin: 0;
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  line-height: 1.45;
+  color: var(--fc-text-muted);
 }
 
 /* ---- Store --------------------------------------------------------------- */
@@ -266,4 +372,194 @@
 @media (max-width: 1100px) {
   .club__body { grid-template-columns: minmax(0, 1fr); }
   .club__store { flex: 0 0 auto; }
+}
+
+/* ============================================================================
+   The pitch view — the eleven as a shape.
+   ============================================================================ */
+
+.pitchview {
+  position: relative;
+  min-height: 0;
+  border-radius: var(--r-panel);
+  overflow: hidden;
+  background: linear-gradient(
+    to bottom,
+    var(--pitch-stripe-dark) 0%,
+    var(--pitch-stripe-light) 100%
+  );
+}
+
+.pitchview__turf {
+  position: absolute;
+  inset: 0;
+  /* Mown stripes, running across the pitch as they do from a broadcast camera. */
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--pitch-stripe-light) 0 8%,
+    var(--pitch-stripe-dark) 8% 16%
+  );
+  opacity: 0.9;
+}
+
+.pitchview__halfway,
+.pitchview__circle,
+.pitchview__box {
+  position: absolute;
+  border: calc(2px * var(--ui-scale)) solid var(--pitch-line);
+  opacity: 0.34;
+}
+
+.pitchview__halfway {
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-width: 0 0 calc(2px * var(--ui-scale));
+}
+
+.pitchview__circle {
+  left: 50%;
+  top: 50%;
+  width: 22%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+
+.pitchview__box {
+  left: 27%;
+  right: 27%;
+  height: 13%;
+}
+
+.pitchview__box--near { bottom: 0; border-bottom: 0; }
+.pitchview__box--far { top: 0; border-top: 0; }
+
+.pitchview__spot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.pitchview__card { position: relative; }
+
+.pitchview__slot {
+  position: absolute;
+  left: 50%;
+  bottom: calc(-9px * var(--ui-scale));
+  transform: translateX(-50%);
+  padding: calc(2px * var(--ui-scale)) calc(8px * var(--ui-scale));
+  border-radius: var(--r-pill);
+  background: var(--fc-hud-fill);
+  color: var(--fc-text);
+  font-size: calc(10.5px * var(--ui-scale));
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+/* What playing out of position is costing, stated rather than implied. */
+.pitchview__warn {
+  position: absolute;
+  right: calc(-6px * var(--ui-scale));
+  top: calc(-6px * var(--ui-scale));
+  padding: calc(2px * var(--ui-scale)) calc(6px * var(--ui-scale));
+  border-radius: var(--r-chip);
+  background: var(--fc-warn);
+  color: var(--fc-text-invert);
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(11px * var(--ui-scale));
+}
+
+.pitchview__pin {
+  position: absolute;
+  left: calc(-5px * var(--ui-scale));
+  top: calc(-5px * var(--ui-scale));
+  width: calc(9px * var(--ui-scale));
+  height: calc(9px * var(--ui-scale));
+  border-radius: 50%;
+  background: var(--fc-focus);
+}
+
+.pitchview__empty {
+  width: calc(112px * var(--ui-scale));
+  aspect-ratio: 1 / 1.38;
+  border-radius: var(--r-row);
+  border: calc(2px * var(--ui-scale)) dashed var(--fc-hairline-strong);
+  background: var(--fc-scrim);
+  color: var(--fc-text-muted);
+  font-size: calc(26px * var(--ui-scale));
+  font-weight: 300;
+}
+
+.pitchview__empty[data-focused='true'] {
+  border-color: var(--fc-focus);
+  color: var(--fc-text);
+}
+
+/* ---- Bench strip --------------------------------------------------------- */
+
+.bench {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(14px * var(--ui-scale)) calc(10px * var(--ui-scale));
+  padding-top: calc(6px * var(--ui-scale));
+}
+
+/* ============================================================================
+   Swapping a shirt.
+   ============================================================================ */
+
+.swap {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: grid;
+  place-items: center;
+  background: var(--fc-scrim);
+  backdrop-filter: blur(calc(10px * var(--ui-scale)));
+  animation: fc-push-in var(--push) var(--ease-push) both;
+}
+
+.swap__panel {
+  width: min(78vw, calc(1180px * var(--ui-scale)));
+  max-height: 76vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: calc(32px * var(--ui-scale));
+  border-radius: var(--r-panel);
+  background: var(--fc-panel);
+}
+
+.swap__panel::-webkit-scrollbar { display: none; }
+
+.swap__head { margin-bottom: calc(18px * var(--ui-scale)); }
+
+.swap__slot {
+  margin: calc(4px * var(--ui-scale)) 0 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(34px * var(--ui-scale));
+  line-height: 1;
+  transform: var(--display-slant);
+  transform-origin: left bottom;
+}
+
+.swap__auto {
+  margin-top: calc(22px * var(--ui-scale));
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10px * var(--ui-scale));
+  padding: calc(10px * var(--ui-scale)) calc(18px * var(--ui-scale));
+  border-radius: var(--r-pill);
+  background: var(--fc-panel-alt);
+  color: var(--fc-text);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+}
+
+@media (max-width: 1100px) {
+  .club__body--squad,
+  .club__body--store { grid-template-columns: minmax(0, 1fr); }
 }
