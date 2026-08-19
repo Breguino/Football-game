@@ -70,6 +70,14 @@
 
   /* Stadium and lighting. Read by the renderer through tokenRGB(). */
   --stadium-concrete:   #23252B;
+  /* Player skin tones, so a squad is not one person twenty-two times. */
+  --skin-1:             #8D5524;
+  --skin-2:             #C68642;
+  --skin-3:             #E0AC69;
+  --skin-4:             #F1C27D;
+  --skin-5:             #5C3317;
+  --skin-6:             #A56D3B;
+
   --crowd-a:            #6E7684;
   --crowd-b:            #8C93A0;
   --crowd-c:            #4A4F5A;

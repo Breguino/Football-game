@@ -248,10 +248,8 @@
   text-align: right;
 }
 
-@media (max-width: 900px) {
-  .sheet { grid-template-columns: 1fr; }
-  .sheet__spine { display: none; }
-}
+:root:not([data-layout='wide']) .sheet { grid-template-columns: 1fr; }
+:root:not([data-layout='wide']) .sheet__spine { display: none; }
 
 /* ---- Replay chrome ------------------------------------------------------- */
 

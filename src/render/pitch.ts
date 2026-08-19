@@ -232,7 +232,7 @@ export function buildPitch(): PitchBuild {
 }
 
 /** The stadium bowl: stands, a roof lip, and a crowd of instanced specks. */
-export function buildStadium(seed = 3): PitchBuild {
+export function buildStadium(seed = 3, crowdPerStand = 3400): PitchBuild {
   const group = new THREE.Group();
   const disposables: { dispose: () => void }[] = [];
 
@@ -284,7 +284,7 @@ export function buildStadium(seed = 3): PitchBuild {
 
     // Crowd: instanced specks raked up the stand face. Cheap, and under the
     // depth of field it reads exactly like a filled stadium.
-    const perStand = 3400;
+    const perStand = crowdPerStand;
     const specGeo = new THREE.PlaneGeometry(0.62, 1.05);
     const specMat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, vertexColors: true });
     const crowd = new THREE.InstancedMesh(specGeo, specMat, perStand);

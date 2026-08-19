@@ -5,6 +5,15 @@ import { BroadcastCamera, type CameraSettings } from './camera';
 import { tokenRGB } from '@/ui/tokens/read';
 import type { MatchState } from '@/sim/match';
 import type { ReplayFrame } from '@/sim/replay';
+import type { ClubColours } from '@/world/colour';
+import {
+  guessTier,
+  lower,
+  QualityGovernor,
+  settingsFor,
+  type Quality,
+} from './quality';
+import { PlayerFigures, PLAYER_HEIGHT } from './player';
 
 /**
  * Assembles the match renderer: pitch, stadium, floodlights, players, ball,
@@ -19,11 +28,11 @@ export interface SceneOptions {
   timeOfDay: TimeOfDay;
   grain: number;
   dof: number;
-  homeColours: { primary: string; secondary: string };
-  awayColours: { primary: string; secondary: string };
+  homeColours: ClubColours;
+  awayColours: ClubColours;
+  /** Overrides the automatic tier. Left unset, the device decides. */
+  tier?: Quality['tier'];
 }
-
-const PLAYER_HEIGHT = 1.82;
 
 export class MatchScene {
   private readonly renderer: THREE.WebGLRenderer;
@@ -31,7 +40,10 @@ export class MatchScene {
   private readonly broadcast: BroadcastCamera;
   private readonly grade: ReturnType<typeof createGradePass>;
 
-  private readonly players: THREE.Mesh[] = [];
+  private figures!: PlayerFigures;
+  private quality: Quality;
+  private readonly governor = new QualityGovernor();
+  private key: THREE.DirectionalLight | null = null;
   private readonly indicators: THREE.Mesh[] = [];
   private ball!: THREE.Mesh;
   private ballShadow!: THREE.Mesh;
@@ -48,8 +60,9 @@ export class MatchScene {
       antialias: false, // the grade pass softens edges; MSAA is wasted cost
       powerPreference: 'high-performance',
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
-    this.renderer.shadowMap.enabled = true;
+    this.quality = settingsFor(options.tier ?? guessTier(), window.devicePixelRatio);
+    this.renderer.setPixelRatio(this.quality.pixelRatio);
+    this.renderer.shadowMap.enabled = this.quality.shadows;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.32;
@@ -65,47 +78,24 @@ export class MatchScene {
 
   private buildWorld() {
     const pitch = buildPitch();
-    const stadium = buildStadium();
+    const stadium = buildStadium(3, this.quality.crowd);
     this.scene.add(pitch.group, stadium.group);
     this.disposables.push(pitch, stadium);
 
-    // Players are capsules. At broadcast distance under depth of field, a
-    // capsule with the right silhouette and the right kit colour is
-    // indistinguishable from a rigged model — and it leaves the frame budget
-    // for the grade, which is what actually sells the look.
-    const bodyGeo = new THREE.CapsuleGeometry(0.30, PLAYER_HEIGHT - 0.9, 4, 10);
-    this.disposables.push(bodyGeo);
+    const kits: [ClubColours, ClubColours] = [
+      this.options.homeColours,
+      this.options.awayColours,
+    ];
 
-    const kits = [this.options.homeColours, this.options.awayColours];
-    const materials = kits.map((kit) => {
-      // A shirt under a floodlight rig reads brighter and more saturated than
-      // the flat crest colour, and two mid-tone kits are otherwise impossible
-      // to tell apart on the pitch even when their hues differ.
-      const colour = new THREE.Color(kit.primary);
-      const hsl = { h: 0, s: 0, l: 0 };
-      colour.getHSL(hsl);
-      colour.setHSL(hsl.h, Math.min(1, hsl.s * 1.25), Math.min(0.72, hsl.l * 1.55 + 0.12));
-
-      const material = new THREE.MeshStandardMaterial({
-        color: colour,
-        roughness: 0.72,
-        metalness: 0.02,
-      });
-      this.disposables.push(material);
-      return material;
-    });
+    this.figures = new PlayerFigures(22, kits, this.quality.detail);
+    for (const group of this.figures.groups) this.scene.add(group);
+    this.disposables.push(this.figures);
 
     const indicatorGeo = new THREE.ConeGeometry(0.34, 0.5, 3);
     this.disposables.push(indicatorGeo);
 
     for (let i = 0; i < 22; i += 1) {
       const team = i < 11 ? 0 : 1;
-      const player = new THREE.Mesh(bodyGeo, materials[team]);
-      player.castShadow = true;
-      player.position.set(0, PLAYER_HEIGHT / 2, 0);
-      player.visible = false;
-      this.scene.add(player);
-      this.players.push(player);
 
       // The team-coloured triangle above the controlled player's head.
       const indicatorMat = new THREE.MeshBasicMaterial({
@@ -177,8 +167,8 @@ export class MatchScene {
       night ? 4.6 : 5.2,
     );
     key.position.set(night ? -40 : 52, 62, night ? 44 : 34);
-    key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
+    key.castShadow = this.quality.shadows;
+    key.shadow.mapSize.set(this.quality.shadowMapSize, this.quality.shadowMapSize);
     key.shadow.camera.near = 10;
     key.shadow.camera.far = 190;
     const extent = PITCH_LENGTH * 0.62;
@@ -188,6 +178,7 @@ export class MatchScene {
     key.shadow.camera.bottom = -PITCH_WIDTH * 0.85;
     key.shadow.bias = -0.0012;
     this.scene.add(key);
+    this.key = key;
 
     // Rim light from the opposite corner: the hard shoulder edge that makes
     // players read against the crowd.
@@ -258,16 +249,14 @@ export class MatchScene {
   renderReplay(frame: ReplayFrame, dt: number, elapsed: number, progress: number) {
     const count = Math.floor(frame.players.length / 4);
     for (let i = 0; i < count; i += 1) {
-      const mesh = this.players[i];
-      if (!mesh) continue;
-      const x = frame.players[i * 4] ?? 0;
-      const z = frame.players[i * 4 + 1] ?? 0;
-      const vx = frame.players[i * 4 + 2] ?? 0;
-      const vz = frame.players[i * 4 + 3] ?? 0;
-      mesh.visible = true;
-      mesh.position.set(x, PLAYER_HEIGHT / 2, z);
-      mesh.rotation.y = Math.atan2(vx, vz);
-      mesh.rotation.x = Math.min(0.2, Math.hypot(vx, vz) * 0.022);
+      this.figures.update(
+        i,
+        frame.players[i * 4] ?? 0,
+        frame.players[i * 4 + 1] ?? 0,
+        frame.players[i * 4 + 2] ?? 0,
+        frame.players[i * 4 + 3] ?? 0,
+        dt,
+      );
     }
     // A replay is footage, not gameplay — the interface markers come off.
     for (const indicator of this.indicators) indicator.visible = false;
@@ -302,17 +291,44 @@ export class MatchScene {
     this.renderer.render(this.grade.scene, this.grade.camera);
   }
 
+  /**
+   * Steps the tier down when frames have been costing too much.
+   *
+   * Only the two levers that can change without rebuilding the scene are
+   * touched: pixel count and shadows. Player geometry and crowd density are
+   * decided once, because rebuilding them mid-match would cost a bigger hitch
+   * than the frames it saves.
+   */
+  private adapt(dt: number) {
+    if (!this.governor.sample(dt)) return;
+
+    const next = lower(this.quality.tier);
+    if (next === null) return;
+
+    this.quality = settingsFor(next, window.devicePixelRatio);
+    this.renderer.setPixelRatio(this.quality.pixelRatio);
+    this.renderer.shadowMap.enabled = this.quality.shadows;
+    if (this.key) {
+      this.key.castShadow = this.quality.shadows;
+      this.key.shadow.mapSize.set(this.quality.shadowMapSize, this.quality.shadowMapSize);
+      // The old map is stale at the new size; dropping it forces a rebuild.
+      this.key.shadow.map?.dispose();
+      this.key.shadow.map = null;
+    }
+    this.resize();
+  }
+
+  /** What the renderer settled on, for the settings screen to report. */
+  get tier(): Quality['tier'] {
+    return this.quality.tier;
+  }
+
   render(state: MatchState, dt: number, elapsed: number) {
+    this.adapt(dt);
+
     // ---- Sync the scene to the simulation -------------------------------
     state.players.forEach((p, i) => {
-      const mesh = this.players[i];
-      if (!mesh) return;
-      mesh.visible = true;
-      mesh.position.set(p.x, PLAYER_HEIGHT / 2, p.z);
-      // Lean into the run, and face the direction of travel.
-      const speed = Math.hypot(p.vx, p.vz);
-      mesh.rotation.y = Math.atan2(p.vx, p.vz);
-      mesh.rotation.x = Math.min(0.2, speed * 0.022);
+      this.figures.update(i, p.x, p.z, p.vx, p.vz, dt);
 
       const indicator = this.indicators[i];
       if (!indicator) return;

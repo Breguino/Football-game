@@ -191,6 +191,7 @@
 .pack {
   position: relative;
   overflow: hidden;
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: 1fr auto;
   grid-template-areas:
@@ -370,10 +371,8 @@
   font-size: calc(var(--fs-body) * var(--ui-scale));
 }
 
-@media (max-width: 1100px) {
-  .club__body { grid-template-columns: minmax(0, 1fr); }
-  .club__store { flex: 0 0 auto; }
-}
+:root[data-layout='phone'] .club__body { grid-template-columns: minmax(0, 1fr); }
+:root[data-layout='phone'] .club__store { flex: 0 0 auto; }
 
 /* ============================================================================
    The pitch view — the eleven as a shape.
@@ -483,7 +482,7 @@
 }
 
 .pitchview__empty {
-  width: calc(112px * var(--ui-scale));
+  width: var(--pitch-card, calc(112px * var(--ui-scale)));
   aspect-ratio: 1 / 1.38;
   border-radius: var(--r-row);
   border: calc(2px * var(--ui-scale)) dashed var(--fc-hairline-strong);
@@ -560,10 +559,8 @@
   font-size: calc(var(--fs-caption) * var(--ui-scale));
 }
 
-@media (max-width: 1100px) {
-  .club__body--squad,
-  .club__body--store { grid-template-columns: minmax(0, 1fr); }
-}
+:root[data-layout='phone'] .club__body--squad,
+:root[data-layout='phone'] .club__body--store { grid-template-columns: minmax(0, 1fr); }
 
 /* ============================================================================
    The fixture slate.
@@ -584,6 +581,10 @@
 .fixture {
   position: relative;
   overflow: hidden;
+  /* Rows keep their height and the list scrolls. Without this they inherit a
+     flex item's default shrink, compress to fit a short window, and the
+     overflow rule above quietly clips everything but the top line. */
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: auto 1fr auto auto;
   grid-template-areas: 'difficulty club numbers reward';
@@ -696,8 +697,19 @@
   color: var(--fc-focus);
 }
 
-@media (max-width: 1100px) {
-  .club__body--play { grid-template-columns: minmax(0, 1fr); }
-  .fixture { grid-template-columns: auto 1fr auto; }
-  .fixture__reward { display: none; }
+:root[data-layout='phone'] .club__body--play { grid-template-columns: minmax(0, 1fr); }
+
+/* The multiplier is the reason to pick a harder game, so it moves rather than
+   being dropped when the row runs out of columns. */
+:root:not([data-layout='wide']) .fixture {
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'difficulty numbers'
+    'club       numbers'
+    'reward     numbers';
+  gap: calc(6px * var(--ui-scale)) calc(14px * var(--ui-scale));
 }
+
+:root:not([data-layout='wide']) .fixture__difficulty { width: auto; }
+:root:not([data-layout='wide']) .fixture__reward { text-align: left; min-width: 0; }
+:root:not([data-layout='wide']) .fixture__numbers { align-self: center; }

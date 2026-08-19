@@ -231,7 +231,5 @@
     calc(28px * var(--ui-scale));
 }
 
-@media (max-width: 1100px) {
-  .squad__body { grid-template-columns: minmax(0, 1fr); }
-  .squad__detail { display: none; }
-}
+:root[data-layout='phone'] .squad__body { grid-template-columns: minmax(0, 1fr); }
+:root[data-layout='phone'] .squad__detail { display: none; }

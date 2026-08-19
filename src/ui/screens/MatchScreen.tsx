@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MatchScene, type SceneOptions, type TimeOfDay } from '@/render/scene';
 import { MatchHud } from '@/ui/hud/MatchHud';
 import { ReplayChrome, TeamSheet, Walkout } from '@/ui/hud/Presentation';
+import { TouchControls } from '@/ui/hud/TouchControls';
+import { isTouchDevice, resetTouch, touch } from '@/input/touch';
 import { useWorld } from '@/state/world';
 import { useSettings } from '@/state/settings';
 import { useCollection } from '@/state/collection';
@@ -83,6 +85,8 @@ export function MatchScreen({
 
   const [snapshot, setSnapshot] = useState<MatchState | null>(null);
   const [reward, setReward] = useState<Reward | null>(null);
+  // Decided once: a device does not grow a touchscreen mid-match.
+  const [showTouch] = useState(isTouchDevice);
   const paidRef = useRef(false);
 
   // Paid once, at the whistle, and only when the collection was the side that
@@ -222,6 +226,13 @@ export function MatchScreen({
         if (Math.abs(ay) > 0.18) moveZ = ay;
       }
 
+      // The thumbstick is a third source alongside the keys and the pad, and
+      // wins only while it is actually being held.
+      if (touch.moveX !== 0 || touch.moveZ !== 0) {
+        moveX = touch.moveX;
+        moveZ = touch.moveZ;
+      }
+
       const length = Math.hypot(moveX, moveZ);
       if (length > 1) {
         moveX /= length;
@@ -242,21 +253,28 @@ export function MatchScreen({
 
       // Shot modifiers: a bumper held with the shoot button picks the type,
       // the way every football game does it. Modifiers are held, not pressed.
-      const finesse = held.has('KeyU') || (pad?.buttons[5]?.pressed ?? false);
-      const power = held.has('KeyO') || (pad?.buttons[4]?.pressed ?? false);
+      const finesse = held.has('KeyU') || (pad?.buttons[5]?.pressed ?? false) || touch.finesse;
+      const power = held.has('KeyO') || (pad?.buttons[4]?.pressed ?? false) || touch.power;
 
       const intent: Intent = {
         moveX,
         moveZ,
-        pass: pressed.has('KeyJ') || (pad?.buttons[2]?.pressed ?? false),
-        shoot: pressed.has('KeyK') || (pad?.buttons[3]?.pressed ?? false),
+        pass: pressed.has('KeyJ') || (pad?.buttons[2]?.pressed ?? false) || touch.pressed.has('pass'),
+        shoot:
+          pressed.has('KeyK') || (pad?.buttons[3]?.pressed ?? false) || touch.pressed.has('shoot'),
         shotType: finesse ? 'finesse' : power ? 'power' : 'driven',
-        sprint: held.has('ShiftLeft') || ((pad?.buttons[7]?.value ?? 0) > 0.5),
-        switchPlayer: pressed.has('Space') || (pad?.buttons[0]?.pressed ?? false),
+        sprint: held.has('ShiftLeft') || ((pad?.buttons[7]?.value ?? 0) > 0.5) || touch.sprint,
+        switchPlayer:
+          pressed.has('Space') ||
+          (pad?.buttons[0]?.pressed ?? false) ||
+          touch.pressed.has('switch'),
         tacticShift: tactic,
       };
 
       pressed.clear();
+      // Touch presses are edge-triggered the same way, so they are consumed
+      // here rather than left to fire again on the next frame.
+      touch.pressed.clear();
       return intent;
     }
 
@@ -387,6 +405,9 @@ export function MatchScreen({
       window.removeEventListener('resize', onResize);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      // A button held as the match ends would otherwise still be held at the
+      // next kickoff — the device outlives the screen that draws it.
+      resetTouch();
       scene.dispose();
     };
     // The match is built once; settings changes take effect at the next kickoff.
@@ -415,6 +436,8 @@ export function MatchScreen({
           {...(reward ? { reward } : {})}
         />
       )}
+
+      {showHud && showTouch && <TouchControls />}
 
       {stage === 'replay' && <ReplayChrome />}
 

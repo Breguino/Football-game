@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { PlayerCard } from '@/ui/primitives/PlayerCard';
 import type { Lineup, LineupSlot } from '@/world/lineup';
 import type { Club, Player } from '@/world/generate';
@@ -35,6 +36,41 @@ export interface SquadPitchProps {
   onSelectSlot: (slot: number) => void;
 }
 
+/**
+ * A card is sized from the pitch, not from the global scale.
+ *
+ * Eleven cards at a fixed width overlap into an unreadable pile as soon as the
+ * pitch is smaller than a desktop column — which it is on any phone, and on
+ * any short window. Four cards abreast across the back line is what sets the
+ * ceiling.
+ */
+const CARD_SHARE = 0.19;
+const CARD_MIN = 54;
+const CARD_MAX = 124;
+
+function useCardWidth(ref: React.RefObject<HTMLElement | null>): number {
+  const [width, setWidth] = useState(CARD_MAX);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      const box = entry?.contentRect;
+      if (!box) return;
+      // Bounded by height as well: a wide, short pitch would otherwise size
+      // cards off the width and stack them past the top and bottom edges.
+      const fromWidth = box.width * CARD_SHARE;
+      const fromHeight = box.height * CARD_SHARE * 0.95;
+      setWidth(Math.max(CARD_MIN, Math.min(CARD_MAX, Math.min(fromWidth, fromHeight))));
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return width;
+}
+
 export function SquadPitch({
   lineup,
   clubOf,
@@ -42,8 +78,11 @@ export function SquadPitch({
   onFocusSlot,
   onSelectSlot,
 }: SquadPitchProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const cardWidth = useCardWidth(ref);
+
   return (
-    <div className="pitchview">
+    <div className="pitchview" ref={ref} style={{ ['--pitch-card' as string]: `${cardWidth}px` }}>
       <div className="pitchview__turf" aria-hidden="true">
         <span className="pitchview__halfway" />
         <span className="pitchview__circle" />
@@ -63,6 +102,7 @@ export function SquadPitch({
               <SlotCard
                 slot={slot}
                 club={clubOf(slot.item)}
+                width={cardWidth}
                 focused={index === focusedSlot}
                 onFocus={() => onFocusSlot(index)}
                 onSelect={() => onSelectSlot(index)}
@@ -88,12 +128,14 @@ export function SquadPitch({
 function SlotCard({
   slot,
   club,
+  width,
   focused,
   onFocus,
   onSelect,
 }: {
   slot: LineupSlot;
   club: Club;
+  width: number;
   focused: boolean;
   onFocus: () => void;
   onSelect: () => void;
@@ -104,7 +146,7 @@ function SlotCard({
         item={slot.item}
         player={slot.player}
         club={club}
-        width={112}
+        width={width}
         focused={focused}
         onFocus={onFocus}
         onSelect={onSelect}
