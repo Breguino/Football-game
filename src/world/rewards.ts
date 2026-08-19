@@ -14,6 +14,8 @@ export interface MatchOutcome {
   /** Your side's rating, and theirs. */
   rating: number;
   opponentRating: number;
+  /** What the chosen rung multiplies the payout by. Defaults to 1. */
+  bonus?: number;
 }
 
 export interface Reward {
@@ -24,6 +26,8 @@ export interface Reward {
   cleanSheet: number;
   /** Paid for beating a better side; never negative. */
   underdog: number;
+  /** Extra from the rung you chose, over and above the parts above. */
+  difficulty: number;
   total: number;
 }
 
@@ -50,6 +54,21 @@ export function rewardFor(outcome: MatchOutcome): Reward {
   const gap = Math.min(MAX_UNDERDOG_GAP, Math.max(0, outcome.opponentRating - outcome.rating));
   const underdog = won || drew ? Math.round(gap * PER_RATING_POINT * (won ? 1 : 0.5)) : 0;
 
-  const total = APPEARANCE + result + goals + cleanSheet + underdog;
-  return { base: APPEARANCE, result, goals, cleanSheet, underdog, total };
+  const parts = APPEARANCE + result + goals + cleanSheet + underdog;
+
+  // Applied to the whole payout rather than to the win alone, so choosing a
+  // harder rung is worth something even in a defeat — otherwise the only sane
+  // play is the easiest fixture until your squad is overwhelming.
+  const bonus = Math.max(0, outcome.bonus ?? 1);
+  const difficulty = Math.round(parts * bonus) - parts;
+
+  return {
+    base: APPEARANCE,
+    result,
+    goals,
+    cleanSheet,
+    underdog,
+    difficulty,
+    total: parts + difficulty,
+  };
 }

@@ -78,7 +78,7 @@ export const CLUB_GRAMMAR: Record<string, NameGrammar> = {
       'Ødegård', 'Blåvik', 'Ísafell',
     ],
     prefixes: ['', '', 'IF ', 'IK '],
-    suffixes: [' BK', ' IF', ' FK', ' United', ''],
+    suffixes: [' BK', ' IF', ' FK', ' AIF', ''],
   },
   brasa: {
     cores: [
@@ -151,6 +151,26 @@ export const LEAGUES: { id: string; name: string; nation: string; tier: number; 
   { id: 'albion-champ', name: 'Albion Championship', nation: 'albion', tier: 2, strength: 0.72 },
 ];
 
-export const STADIUM_SUFFIXES = [
-  'Park', 'Stadium', 'Arena', 'Ground', 'Field', 'Bowl', 'Stadion', 'Estadio',
-];
+/**
+ * What a ground is called, per nation.
+ *
+ * A shared list gives an Albion club an "Estadio" and a Catalvan one a
+ * "Ground", which reads as a generator rather than a football world. The words
+ * belong to the language the club's name is already in.
+ */
+export const STADIUM_SUFFIXES: Record<string, string[]> = {
+  albion: ['Park', 'Stadium', 'Ground', 'Arena', 'Road', 'Lane'],
+  ostmark: ['Stadion', 'Arena', 'Park', 'Kampfbahn'],
+  nordvik: ['Stadion', 'Arena', 'Park', 'Vang'],
+};
+
+/**
+ * Nations that put the word first: "Stade de Chaumery", not "Chaumery Stade".
+ */
+export const STADIUM_PREFIXES: Record<string, string[]> = {
+  valenne: ['Stade de', 'Parc de', 'Stade Municipal de'],
+  catalva: ['Estadio de', 'Campo de', 'Estadio Municipal de'],
+};
+
+/** Every nation gets something, including ones without their own list. */
+export const DEFAULT_STADIUM_SUFFIXES = ['Stadium', 'Arena', 'Park'];

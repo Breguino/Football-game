@@ -37,9 +37,12 @@ const REPLAY_SPEED = 0.4;
 export function MatchScreen({
   onExit,
   lineup = 'club',
+  bonus = 1,
 }: {
   onExit: () => void;
   lineup?: Lineup;
+  /** What the chosen fixture multiplies the payout by. */
+  bonus?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const world = useWorld((s) => s.world);
@@ -48,6 +51,7 @@ export function MatchScreen({
   const settingsValue = useSettings((s) => s.value);
   const collectionLineup = useCollection((s) => s.lineup);
   const earn = useCollection((s) => s.earn);
+  const recordResult = useCollection((s) => s.recordResult);
 
   const clubIdentity = world.clubs[userClubId]!;
   // Playing from the Club screen fields the collection under the club's own
@@ -93,12 +97,24 @@ export function MatchScreen({
       conceded: snapshot.score[1],
       rating: home.overall,
       opponentRating: away.overall,
+      bonus,
     });
     setReward(earned);
     earn(earned.total);
+    recordResult(snapshot.score[0], snapshot.score[1]);
     // Deps are primitives: the snapshot is a fresh object 15 times a second,
     // so depending on it (or on its score array) would re-run this all match.
-  }, [snapshot?.phase, snapshot?.score[0], snapshot?.score[1], lineup, home.overall, away.overall, earn]);
+  }, [
+    snapshot?.phase,
+    snapshot?.score[0],
+    snapshot?.score[1],
+    lineup,
+    home.overall,
+    away.overall,
+    bonus,
+    earn,
+    recordResult,
+  ]);
 
   // Settings are read once at kickoff; changing them mid-match is not a thing.
   const optionsRef = useRef<SceneOptions>({

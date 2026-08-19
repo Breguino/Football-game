@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PlayerCard } from '@/ui/primitives/PlayerCard';
 import { Hint, Glyph } from '@/ui/primitives/Glyph';
 import { SquadPitch, BenchStrip } from './SquadPitch';
+import { PlaySlate } from './PlaySlate';
 import { useNavigation } from '@/input/InputProvider';
 import { useWorld } from '@/state/world';
 import { useCollection } from '@/state/collection';
 import { bestOf, discardValue, PACK_TYPES, type PackType, type PlayerItem } from '@/world/items';
 import { FORMATION } from '@/world/lineup';
+import { opponentsFor, type Opponent } from '@/world/opponents';
 import type { NavAction } from '@/input/actions';
 import type { Club, Player } from '@/world/generate';
 import './club.css';
@@ -20,7 +22,7 @@ import './club.css';
  * differently, and sharing them would mean one of the three navigating badly.
  */
 
-const TABS = ['Squad', 'Store', 'Items'] as const;
+const TABS = ['Squad', 'Play', 'Store', 'Items'] as const;
 type Tab = (typeof TABS)[number];
 
 /** Resolves an item back to the player and club it was printed from. */
@@ -31,7 +33,14 @@ type Mode =
   | { kind: 'swapping'; slot: number }
   | { kind: 'revealing'; items: PlayerItem[]; index: number; pack: PackType };
 
-export function ClubScreen({ onExit, onPlay }: { onExit: () => void; onPlay: () => void }) {
+export function ClubScreen({
+  onExit,
+  onPlay,
+}: {
+  onExit: () => void;
+  /** Kicks off against the chosen opponent, at the chosen reward multiplier. */
+  onPlay: (opponent: Opponent) => void;
+}) {
   const world = useWorld((s) => s.world);
   const userClubId = useWorld((s) => s.userClubId);
   const coins = useCollection((s) => s.coins);
@@ -41,6 +50,7 @@ export function ClubScreen({ onExit, onPlay }: { onExit: () => void; onPlay: () 
   const discard = useCollection((s) => s.discard);
   const pin = useCollection((s) => s.pin);
   const lineupOf = useCollection((s) => s.lineup);
+  const record = useCollection((s) => s.record);
 
   const club = world.clubs[userClubId]!;
 
@@ -57,11 +67,19 @@ export function ClubScreen({ onExit, onPlay }: { onExit: () => void; onPlay: () 
   const [mode, setMode] = useState<Mode>({ kind: 'browsing' });
   const [slotIndex, setSlotIndex] = useState(9);
   const [packIndex, setPackIndex] = useState(1);
+  const [fixtureIndex, setFixtureIndex] = useState(1);
   const [cardIndex, setCardIndex] = useState(0);
   const [benchIndex, setBenchIndex] = useState(0);
 
   /** Items newest first, so a fresh pull is at the front. */
   const owned = useMemo(() => [...items].reverse(), [items]);
+
+  // The slate moves with your squad and refreshes as you play, so improving
+  // changes who you face rather than only what the number says.
+  const opponents = useMemo(
+    () => opponentsFor(world, lineup.rating, record.played, userClubId),
+    [world, lineup.rating, record.played, userClubId],
+  );
 
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -178,7 +196,8 @@ export function ClubScreen({ onExit, onPlay }: { onExit: () => void; onPlay: () 
         return;
       }
       if (action === 'menu') {
-        if (lineup.complete) onPlay();
+        const fixture = opponents[fixtureIndex];
+        if (lineup.complete && fixture) onPlay(fixture);
         return;
       }
 
@@ -203,6 +222,25 @@ export function ClubScreen({ onExit, onPlay }: { onExit: () => void; onPlay: () 
           case 'altAction':
             pin(slotIndex, null);
             break;
+          default:
+            break;
+        }
+        return;
+      }
+
+      if (tab === 'Play') {
+        switch (action) {
+          case 'up':
+            setFixtureIndex((i) => Math.max(0, i - 1));
+            break;
+          case 'down':
+            setFixtureIndex((i) => Math.min(opponents.length - 1, i + 1));
+            break;
+          case 'confirm': {
+            const fixture = opponents[fixtureIndex];
+            if (lineup.complete && fixture) onPlay(fixture);
+            break;
+          }
           default:
             break;
         }
@@ -250,7 +288,7 @@ export function ClubScreen({ onExit, onPlay }: { onExit: () => void; onPlay: () 
     },
     [
       mode, tab, owned, cardIndex, slotIndex, benchIndex, swapCandidates, lineup,
-      openSelected, discard, advance, columns, pin, onExit, onPlay,
+      opponents, fixtureIndex, openSelected, discard, advance, columns, pin, onExit, onPlay,
     ],
   );
 
@@ -346,6 +384,20 @@ export function ClubScreen({ onExit, onPlay }: { onExit: () => void; onPlay: () 
               emptyLabel="Nobody spare. Open a pack."
             />
           </aside>
+        </div>
+      )}
+
+      {tab === 'Play' && (
+        <div className="club__body club__body--play">
+          <PlaySlate
+            opponents={opponents}
+            record={record}
+            squadRating={lineup.rating}
+            focused={fixtureIndex}
+            onFocus={setFixtureIndex}
+            onSelect={onPlay}
+            canPlay={lineup.complete}
+          />
         </div>
       )}
 
@@ -464,6 +516,18 @@ function ActionHints({
         <Hint action="confirm" label="Change player" />
         <Hint action="altAction" label="Pick automatically" />
         {canPlay && <Hint action="menu" label="Play a match" />}
+        <Hint action="back" label="Back" />
+      </>
+    );
+  }
+  if (tab === 'Play') {
+    return (
+      <>
+        {canPlay ? (
+          <Hint action="confirm" label="Kick off" />
+        ) : (
+          <Hint action="confirm" label="Need a full eleven" />
+        )}
         <Hint action="back" label="Back" />
       </>
     );

@@ -365,6 +365,9 @@ function BreakOverlay({
               {reward.goals > 0 && <PayLine label="Goals" value={reward.goals} />}
               {reward.cleanSheet > 0 && <PayLine label="Clean sheet" value={reward.cleanSheet} />}
               {reward.underdog > 0 && <PayLine label="Beat a better side" value={reward.underdog} />}
+              {reward.difficulty !== 0 && (
+                <PayLine label="Fixture" value={reward.difficulty} />
+              )}
             </ul>
             <p className="payout__total">
               <span>Total</span>

@@ -9,7 +9,15 @@
 import { createRng, type Rng } from './rng';
 import { generateColours, type ClubColours } from './colour';
 import { generateCrest, type Crest } from './crest';
-import { CLUB_GRAMMAR, LEAGUES, NATIONS, PERSON_NAMES, STADIUM_SUFFIXES } from './names';
+import {
+  CLUB_GRAMMAR,
+  DEFAULT_STADIUM_SUFFIXES,
+  LEAGUES,
+  NATIONS,
+  PERSON_NAMES,
+  STADIUM_PREFIXES,
+  STADIUM_SUFFIXES,
+} from './names';
 
 export type Position = 'GK' | 'CB' | 'LB' | 'RB' | 'CDM' | 'CM' | 'CAM' | 'LW' | 'RW' | 'ST';
 
@@ -207,19 +215,51 @@ function generateSquad(rng: Rng, base: number, nationId: string): Player[] {
   return squad.sort((a, b) => a.number - b.number);
 }
 
-function generateClubName(rng: Rng, nationId: string, used: Set<string>): string {
+/**
+ * A club's name, and the place inside it.
+ *
+ * The core is kept because it is the part that means something. Everything
+ * around it is club-type furniture — IF, 1. FC, United, 09 — and a stadium
+ * named from the last word of the full name ends up as "BK Field" or
+ * "09 Stadium".
+ */
+function generateClubName(
+  rng: Rng,
+  nationId: string,
+  used: Set<string>,
+): { name: string; core: string } {
   const grammar = CLUB_GRAMMAR[nationId] ?? CLUB_GRAMMAR['albion']!;
   for (let attempt = 0; attempt < 40; attempt += 1) {
-    const name = `${rng.pick(grammar.prefixes)}${rng.pick(grammar.cores)}${rng.pick(grammar.suffixes)}`.trim();
+    const core = rng.pick(grammar.cores);
+
+    // A club carries at most one club-type token. Taking a prefix and a suffix
+    // independently produced "IF Hallvarden IF" and "IK Storøya BK" — the same
+    // kind of word at both ends, which no club is called.
+    let prefix = rng.pick(grammar.prefixes);
+    let suffix = rng.pick(grammar.suffixes);
+    if (prefix !== '' && suffix !== '') {
+      if (rng.next() < 0.5) prefix = '';
+      else suffix = '';
+    }
+
+    const name = `${prefix}${core}${suffix}`.trim();
     if (!used.has(name)) {
       used.add(name);
-      return name;
+      return { name, core };
     }
   }
   // Space exhausted for this nation; fall back to a numbered variant.
-  const fallback = `${rng.pick(grammar.cores)} ${used.size + 1}`;
+  const core = rng.pick(grammar.cores);
+  const fallback = `${core} ${used.size + 1}`;
   used.add(fallback);
-  return fallback;
+  return { name: fallback, core };
+}
+
+/** What the ground is called, in the language the club's name is already in. */
+function stadiumName(rng: Rng, nation: string, core: string): string {
+  const prefixes = STADIUM_PREFIXES[nation];
+  if (prefixes) return `${rng.pick(prefixes)} ${core}`;
+  return `${core} ${rng.pick(STADIUM_SUFFIXES[nation] ?? DEFAULT_STADIUM_SUFFIXES)}`;
 }
 
 /** Strips diacritics so codes stay in A-Z. */
@@ -271,7 +311,7 @@ export function generateWorld(seed: string, options?: { clubsPerLeague?: number 
 
     for (let i = 0; i < clubsPerLeague; i += 1) {
       const clubRng = leagueRng.fork(`club-${i}`);
-      const name = generateClubName(clubRng, spec.nation, usedNames);
+      const { name, core } = generateClubName(clubRng, spec.nation, usedNames);
       const code = generateCode(name, usedCodes);
 
       // Strength spreads across the league: a few contenders, a long midtable.
@@ -294,7 +334,7 @@ export function generateWorld(seed: string, options?: { clubsPerLeague?: number 
         colours: generateColours(clubRng),
         crest: generateCrest(clubRng, name),
         stadium: {
-          name: `${name.split(/\s+/).slice(-1)[0]} ${clubRng.pick(STADIUM_SUFFIXES)}`,
+          name: stadiumName(clubRng, spec.nation, core),
           capacity: Math.round((18000 + clubRng.range(0, 62000) * spec.strength) / 500) * 500,
         },
         squad,

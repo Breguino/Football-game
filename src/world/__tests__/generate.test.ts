@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { generateWorld, startingEleven } from '../generate';
 import { createRng } from '../rng';
 import { luminance, inkFor, hsl } from '../colour';
+import { CLUB_GRAMMAR } from '../names';
 
 describe('world generation', () => {
   const world = generateWorld('kick-off');
@@ -106,13 +107,19 @@ describe('world generation', () => {
     }
   });
 
-  it('keeps club ratings in a believable band', () => {
-    const overalls = world.clubOrder.map((id) => world.clubs[id]!.overall);
-    // The best side in the world should be a strong but not absurd team, and
-    // the weakest should still look like a professional squad.
-    expect(Math.max(...overalls)).toBeLessThanOrEqual(86);
-    expect(Math.max(...overalls)).toBeGreaterThanOrEqual(78);
-    expect(Math.min(...overalls)).toBeGreaterThanOrEqual(58);
+  it('keeps club ratings in a believable band, in any world', () => {
+    // Checked across several seeds: a band tuned against one world passes by
+    // luck and breaks the next time anything upstream touches the rng.
+    for (const seed of ['kick-off', 'boot-room-01', 'a', 'b', 'c']) {
+      const other = generateWorld(seed);
+      const overalls = other.clubOrder.map((id) => other.clubs[id]!.overall);
+      // The best side should be strong but not absurd, and the weakest should
+      // still look like a professional squad in a lower division.
+      expect(Math.max(...overalls)).toBeLessThanOrEqual(88);
+      expect(Math.max(...overalls)).toBeGreaterThanOrEqual(78);
+      expect(Math.min(...overalls)).toBeGreaterThanOrEqual(52);
+      expect(Math.min(...overalls)).toBeLessThan(Math.max(...overalls) - 12);
+    }
   });
 
   it('does not let a positional bias outrun a player rating', () => {
@@ -158,6 +165,84 @@ describe('rng', () => {
       const v = rng.int(3, 7);
       expect(v).toBeGreaterThanOrEqual(3);
       expect(v).toBeLessThanOrEqual(7);
+    }
+  });
+});
+
+describe('club names', () => {
+  const world = generateWorld('club-names');
+
+  it('carry at most one club-type token', () => {
+    // "IF Hallvarden IF" and "IK Storøya BK" are not names any club has.
+    for (const id of world.clubOrder) {
+      const club = world.clubs[id]!;
+      const grammar = CLUB_GRAMMAR[club.nation];
+      if (!grammar) continue;
+
+      const hasPrefix = grammar.prefixes.some((x) => x !== '' && club.name.startsWith(x));
+      const hasSuffix = grammar.suffixes.some((x) => x !== '' && club.name.endsWith(x));
+      expect(hasPrefix && hasSuffix).toBe(false);
+    }
+  });
+
+  it('never repeat the same token twice', () => {
+    for (const id of world.clubOrder) {
+      const words = world.clubs[id]!.name.split(/\s+/);
+      expect(new Set(words).size).toBe(words.length);
+    }
+  });
+});
+
+describe('stadium names', () => {
+  const world = generateWorld('stadiums');
+
+  it('are named after the place, not the club-type furniture', () => {
+    // "IF Storøya BK" is Storøya's ground, not "BK Field"; "SC Mühlental 09"
+    // plays at Mühlental, not "09 Stadium".
+    const junk = /^(BK|IF|IK|FC|SC|SV|AS|CD|UD|CF|AC|TSV|RC|\d{2,4})\s/;
+    for (const id of world.clubOrder) {
+      expect(world.clubs[id]!.stadium.name).not.toMatch(junk);
+    }
+  });
+
+  it('name the same place the club is named after', () => {
+    // Either form: "Aldercross Road", or "Stade de Chaumery".
+    for (const id of world.clubOrder) {
+      const club = world.clubs[id]!;
+      const core = CLUB_GRAMMAR[club.nation]?.cores.find((c) => club.name.includes(c));
+      if (!core) continue;
+      expect(club.stadium.name).toContain(core);
+    }
+  });
+
+  it('do not end with a generic club suffix', () => {
+    const suffixes = /\b(United|Town|City|Rovers|Athletic|Wanderers|Albion|County|Sportif)\b/;
+    for (const id of world.clubOrder) {
+      const { stadium } = world.clubs[id]!;
+      expect(stadium.name.replace(/\s+\S+$/, '')).not.toMatch(suffixes);
+    }
+  });
+
+  it('use a word from the club\u2019s own language', () => {
+    // An Albion club with an "Estadio" reads as a generator, not a world.
+    const foreign: Record<string, RegExp> = {
+      albion: /\b(Estadio|Stadion|Stade|Parc|Campo|Kampfbahn|Vang)\b/,
+      catalva: /\b(Ground|Stadion|Stade|Parc|Kampfbahn|Road|Lane|Vang)\b/,
+      ostmark: /\b(Estadio|Ground|Stade|Campo|Road|Lane|Vang)\b/,
+      valenne: /\b(Estadio|Stadion|Ground|Campo|Road|Lane|Kampfbahn|Vang)\b/,
+    };
+    for (const id of world.clubOrder) {
+      const club = world.clubs[id]!;
+      const wrong = foreign[club.nation];
+      if (wrong) expect(club.stadium.name).not.toMatch(wrong);
+    }
+  });
+
+  it('hold a plausible crowd', () => {
+    for (const id of world.clubOrder) {
+      const { capacity } = world.clubs[id]!.stadium;
+      expect(capacity).toBeGreaterThanOrEqual(15_000);
+      expect(capacity).toBeLessThanOrEqual(90_000);
     }
   });
 });

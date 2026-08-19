@@ -105,17 +105,20 @@ describe('the collection loop', () => {
     expect(total(withHero) - total(lineup)).toBe(hero.rating - original.rating);
   });
 
-  it('leaves the side alone when the upgrade is to someone already benched', () => {
-    const benched = lineup.bench[lineup.bench.length - 1]!;
-    const better = makeItem(benched.player, benched.item.clubId, {
-      edition: 'totw',
-      suffix: '#b',
-    });
-    const swapped = items.map((item) => (item.id === benched.item.id ? better : item));
-    const after = buildLineup(swapped, resolve);
+  it('never weakens the side by upgrading a substitute', () => {
+    // The upgrade may or may not be enough to break into the eleven — that
+    // depends on who is ahead of them — but it can never make things worse.
+    const total = (l: ReturnType<typeof buildLineup>) =>
+      l.eleven.reduce((sum, x) => sum + x.effective, 0);
 
-    const total = (l: typeof after) => l.eleven.reduce((sum, x) => sum + x.effective, 0);
-    expect(total(after)).toBe(total(lineup));
+    for (const benched of lineup.bench) {
+      const better = makeItem(benched.player, benched.item.clubId, {
+        edition: 'totw',
+        suffix: `#b${benched.item.id}`,
+      });
+      const swapped = items.map((item) => (item.id === benched.item.id ? better : item));
+      expect(total(buildLineup(swapped, resolve))).toBeGreaterThanOrEqual(total(lineup));
+    }
   });
 
   it('makes a better collection a better side', () => {

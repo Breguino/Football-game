@@ -6,6 +6,8 @@ import { HubScreen } from '@/ui/screens/HubScreen';
 import { SquadScreen } from '@/ui/screens/SquadScreen';
 import { ClubScreen } from '@/ui/screens/ClubScreen';
 import { useSettings } from '@/state/settings';
+import { useWorld } from '@/state/world';
+import { DIFFICULTY_BONUS } from '@/world/opponents';
 
 // Three.js is most of the bundle and only the match needs it, so the menus
 // are not made to wait for it.
@@ -33,6 +35,10 @@ function Router() {
   // A match started from the Club screen fields the collection; one started
   // from the hub fields the generated club.
   const [lineup, setLineup] = useState<Lineup>('club');
+  // How much the chosen fixture multiplies the payout by. Only a collection
+  // match has one; a hub kick-off is an exhibition and pays nothing.
+  const [bonus, setBonus] = useState(1);
+  const setOpponent = useWorld((s) => s.setOpponent);
   const toHub = () => setScreen('hub');
 
   switch (screen) {
@@ -44,7 +50,9 @@ function Router() {
       return (
         <ClubScreen
           onExit={toHub}
-          onPlay={() => {
+          onPlay={(opponent) => {
+            setOpponent(opponent.club.id);
+            setBonus(DIFFICULTY_BONUS[opponent.difficulty]);
             setLineup('collection');
             setScreen('match');
           }}
@@ -53,7 +61,7 @@ function Router() {
     case 'match':
       return (
         <Suspense fallback={<div className="fc-booting">Walking out…</div>}>
-          <MatchScreen onExit={toHub} lineup={lineup} />
+          <MatchScreen onExit={toHub} lineup={lineup} bonus={bonus} />
         </Suspense>
       );
     case 'hub':

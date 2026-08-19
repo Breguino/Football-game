@@ -106,6 +106,7 @@
 }
 
 .club__body--squad { grid-template-columns: minmax(0, 1fr) minmax(0, 0.44fr); }
+.club__body--play { grid-template-columns: minmax(0, 1fr) minmax(0, 0.44fr); }
 .club__body--store { grid-template-columns: minmax(0, 0.52fr) minmax(0, 1fr); }
 .club__body--items { grid-template-columns: minmax(0, 1fr); }
 
@@ -562,4 +563,141 @@
 @media (max-width: 1100px) {
   .club__body--squad,
   .club__body--store { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ============================================================================
+   The fixture slate.
+   ============================================================================ */
+
+.slate {
+  display: flex;
+  flex-direction: column;
+  gap: calc(12px * var(--ui-scale));
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding-bottom: calc(24px * var(--ui-scale));
+}
+
+.slate::-webkit-scrollbar { display: none; }
+
+.fixture {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  grid-template-areas: 'difficulty club numbers reward';
+  align-items: center;
+  gap: calc(24px * var(--ui-scale));
+  padding: calc(20px * var(--ui-scale)) calc(26px * var(--ui-scale));
+  border-radius: var(--r-row);
+  background: var(--fc-panel);
+  color: var(--fc-text);
+  text-align: left;
+  font-family: var(--font-ui);
+  transition: transform var(--snap) var(--ease-snap), background var(--snap) var(--ease-snap);
+}
+
+.fixture:disabled { opacity: 0.42; }
+
+.fixture[data-focused='true']:not(:disabled) {
+  background: var(--fc-row-focus);
+  transform: translateX(calc(var(--chevron-run) * 0.5));
+}
+
+.fixture__leak {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(3px * var(--ui-scale));
+  background: var(--fc-focus);
+  animation: fc-settle-in var(--snap) var(--ease-snap) both;
+}
+
+/* The rung, read down the left edge like a form guide. */
+.fixture__difficulty {
+  grid-area: difficulty;
+  width: calc(104px * var(--ui-scale));
+  font-size: calc(11.5px * var(--ui-scale));
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.fixture[data-difficulty='comfortable'] .fixture__difficulty { color: var(--fc-positive); }
+.fixture[data-difficulty='even'] .fixture__difficulty { color: var(--fc-stamina); }
+.fixture[data-difficulty='testing'] .fixture__difficulty { color: var(--fc-warn); }
+.fixture[data-difficulty='formidable'] .fixture__difficulty { color: var(--fc-danger); }
+
+.fixture__club {
+  grid-area: club;
+  display: flex;
+  align-items: center;
+  gap: calc(16px * var(--ui-scale));
+  min-width: 0;
+}
+
+.fixture__names {
+  display: flex;
+  flex-direction: column;
+  gap: calc(3px * var(--ui-scale));
+  min-width: 0;
+}
+
+.fixture__name {
+  font-weight: 700;
+  font-size: calc(var(--fs-label) * var(--ui-scale));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fixture__venue {
+  font-size: calc(var(--fs-caption) * var(--ui-scale));
+  color: var(--fc-text-muted);
+}
+
+.fixture__numbers {
+  grid-area: numbers;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(3px * var(--ui-scale));
+}
+
+.fixture__rating {
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(30px * var(--ui-scale));
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.fixture__gap {
+  font-size: calc(var(--fs-micro) * var(--ui-scale));
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}
+
+.fixture__gap[data-sign='above'] { color: var(--fc-warn); }
+.fixture__gap[data-sign='below'] { color: var(--fc-positive); }
+
+/* What the rung multiplies the payout by — the reason to climb. */
+.fixture__reward {
+  grid-area: reward;
+  min-width: calc(64px * var(--ui-scale));
+  text-align: right;
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: calc(22px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+  color: var(--fc-focus);
+}
+
+@media (max-width: 1100px) {
+  .club__body--play { grid-template-columns: minmax(0, 1fr); }
+  .fixture { grid-template-columns: auto 1fr auto; }
+  .fixture__reward { display: none; }
 }

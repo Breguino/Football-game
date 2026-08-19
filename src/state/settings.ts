@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { SETTINGS_TABS, type SettingRow, type SettingsTab } from '@/ui/screens/settingsConfig';
+import { load, save } from './persist';
 
 /** Deep clone of the authored defaults, so "restore defaults" has a source. */
 function seed(): SettingsTab[] {
@@ -21,8 +22,52 @@ interface SettingsState {
   restoreDefaults: () => void;
 }
 
+const SAVE_KEY = 'settings';
+
+/**
+ * Saves the values only, keyed by row id — never the rows themselves.
+ *
+ * The labels, ranges and help text are authored in the config and change with
+ * the game; a save that carried them would pin an old build's wording onto a
+ * new one, and a row that was removed would come back from the dead.
+ */
+function restore(): SettingsTab[] {
+  const values = load<Record<string, number>>(SAVE_KEY);
+  const tabs = seed();
+  if (!values) return tabs;
+
+  for (const tab of tabs) {
+    for (const section of tab.sections) {
+      for (const row of section.rows) {
+        const saved = values[row.id];
+        if (typeof saved !== 'number') continue;
+        // Clamped against the current config, so a range that has since
+        // narrowed cannot restore an out-of-bounds value.
+        if (row.kind === 'slider') {
+          row.value = Math.min(Math.max(saved, row.min ?? 0), row.max);
+        } else if (row.kind === 'cycler') {
+          row.value = Math.min(Math.max(saved, 0), row.options.length - 1);
+        }
+      }
+    }
+  }
+  return tabs;
+}
+
+function valuesOf(tabs: SettingsTab[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const tab of tabs) {
+    for (const section of tab.sections) {
+      for (const row of section.rows) {
+        if (row.kind === 'slider' || row.kind === 'cycler') out[row.id] = row.value;
+      }
+    }
+  }
+  return out;
+}
+
 export const useSettings = create<SettingsState>((set, getState) => ({
-  tabs: seed(),
+  tabs: restore(),
 
   get: (id) => {
     for (const tab of getState().tabs) {
@@ -73,3 +118,10 @@ export const useSettings = create<SettingsState>((set, getState) => ({
 
   restoreDefaults: () => set({ tabs: seed() }),
 }));
+
+// Persist on change rather than from inside adjust(), so a future action that
+// changes a setting cannot forget to save it.
+useSettings.subscribe((state, previous) => {
+  if (state.tabs === previous.tabs) return;
+  save(SAVE_KEY, valuesOf(state.tabs));
+});

@@ -67,3 +67,38 @@ describe('match rewards', () => {
     }
   });
 });
+
+describe('difficulty', () => {
+  const win = { scored: 2, conceded: 0, rating: 70, opponentRating: 70 };
+
+  it('scales the whole payout', () => {
+    const plain = rewardFor(win).total;
+    const hard = rewardFor({ ...win, bonus: 1.9 }).total;
+    expect(hard).toBeGreaterThan(plain);
+    expect(hard / plain).toBeCloseTo(1.9, 1);
+  });
+
+  it('still pays something on the easiest rung', () => {
+    expect(rewardFor({ ...win, bonus: 0.7 }).total).toBeGreaterThan(0);
+  });
+
+  it('is worth choosing even in defeat', () => {
+    // Otherwise the only sane play is the easiest fixture, every time.
+    const loss = { scored: 0, conceded: 2, rating: 70, opponentRating: 82 };
+    expect(rewardFor({ ...loss, bonus: 1.9 }).total).toBeGreaterThan(
+      rewardFor({ ...loss, bonus: 0.7 }).total,
+    );
+  });
+
+  it('keeps the breakdown adding up to the total', () => {
+    // The full-time card shows these lines; if they do not sum, it lies.
+    for (const bonus of [0.7, 1, 1.35, 1.9, undefined]) {
+      const r = rewardFor({ ...win, ...(bonus === undefined ? {} : { bonus }) });
+      expect(r.base + r.result + r.goals + r.cleanSheet + r.underdog + r.difficulty).toBe(r.total);
+    }
+  });
+
+  it('cannot be turned negative by a nonsense multiplier', () => {
+    expect(rewardFor({ ...win, bonus: -5 }).total).toBeGreaterThanOrEqual(0);
+  });
+});
