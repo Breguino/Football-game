@@ -19,6 +19,7 @@ import {
   type Ball,
 } from './ball';
 import { defensiveLine, offBallTarget, ROLES, type Role } from './ai';
+import { createRng, type Rng } from '@/world/rng';
 import {
   checkOutOfPlay,
   HALF_L,
@@ -125,6 +126,13 @@ export interface MatchState {
   decision: { text: string; detail: string; until: number } | null;
   /** The most recent strike, so the renderer can punch the camera on a power shot. */
   lastShot: { type: ShotType; at: number; team: 0 | 1 } | null;
+  /**
+   * The match's own generator. Everything random in a match draws from here
+   * rather than Math.random, so a match is reproducible from its seed — which
+   * is what makes the simulation deterministic in fact and not just in the
+   * comment at the top of this file.
+   */
+  rng: Rng;
   /** Players available to come on, per team. */
   bench: [Player[], Player[]];
   /** Substitutions used, per team. Three each, as the laws allow. */
@@ -173,7 +181,7 @@ function mirror(x: number, team: 0 | 1): number {
 export function createMatch(
   home: Player[],
   away: Player[],
-  options: { halfLength?: number } = {},
+  options: { halfLength?: number; seed?: string } = {},
 ): MatchState {
   const players: SimPlayer[] = [];
 
@@ -230,6 +238,7 @@ export function createMatch(
     restart: null,
     passIntent: null,
     decision: null,
+    rng: createRng(options.seed ?? 'kick-off'),
     lastShot: null,
     bench: [home.slice(11, 18), away.slice(11, 18)],
     subsUsed: [0, 0],
@@ -578,7 +587,10 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
     if (state.phaseTimer <= 0) {
       if (state.phase === 'goal') {
         const conceding = state.lastGoal?.team === 0 ? 1 : 0;
-        recover(state, 4 * (720 / (state.halfLength * 2)));
+        // Flat, not scaled by match length. A celebration is a fixed rest,
+        // and goals per match do not change with half length — scaling this
+        // handed a three-minute half four times the recovery of a twelve.
+        recover(state, 4);
         resetPositions(state, conceding);
         state.phase = 'live';
       } else if (state.phase === 'halftime') {
@@ -876,12 +888,12 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
     const tackler = challenger >= 0 ? state.players[challenger]! : null;
     if (tackler) {
       const odds = (tackler.defending / (tackler.defending + carrier.pace)) * dt * 3.2;
-      if (Math.random() < odds) {
+      if (state.rng.next() < odds) {
         // Closing speed decides how the challenge is judged.
         const closing = Math.hypot(tackler.vx - carrier.vx, tackler.vz - carrier.vz);
         const cleanlyWon =
-          Math.random() < tackler.defending / (tackler.defending + carrier.pace);
-        const verdict = judgeTackle(cleanlyWon, closing, tackler.defending, Math.random);
+          state.rng.next() < tackler.defending / (tackler.defending + carrier.pace);
+        const verdict = judgeTackle(cleanlyWon, closing, tackler.defending, () => state.rng.next());
 
         if (verdict.foul) {
           state.fouls[tackler.team] += 1;
@@ -950,7 +962,7 @@ function decideOnBall(state: MatchState, index: number, dt: number) {
   const ownGoal = ownGoalX(carrier.team);
   const ownThird = Math.abs(carrier.x - ownGoal) < 30;
   const isDefender = carrier.slot >= 1 && carrier.slot <= 4;
-  if (ownThird && (isDefender || pressure < 2.4) && Math.random() < dt * 1.4) {
+  if (ownThird && (isDefender || pressure < 2.4) && state.rng.next() < dt * 1.4) {
     clear(state, index);
     return;
   }
@@ -971,12 +983,12 @@ function decideOnBall(state: MatchState, index: number, dt: number) {
     const appetite = (1 - range / 30) ** 0.8;
     const confidence = 0.35 + (carrier.shooting / 99) * 0.65;
     const squeezed = pressure < 2.2 ? 1.5 : 1;
-    if (Math.random() < appetite * confidence * squeezed * dt * 0.95) {
+    if (state.rng.next() < appetite * confidence * squeezed * dt * 0.95) {
       // Close in, a player places it; from distance they hit it. Good
       // finishers curl more of them.
       const finesseChance = range < 14 ? 0.35 + (carrier.shooting / 99) * 0.3 : 0.12;
       const type: ShotType =
-        Math.random() < finesseChance ? 'finesse' : range > 22 ? 'power' : 'driven';
+        state.rng.next() < finesseChance ? 'finesse' : range > 22 ? 'power' : 'driven';
       shoot(state, index, type);
       return;
     }
@@ -984,7 +996,7 @@ function decideOnBall(state: MatchState, index: number, dt: number) {
 
   // Passing: constantly under pressure, occasionally in space to keep it moving.
   const passUrge = pressure < 3 ? 2.6 : pressure < 7 ? 1.1 : 0.45;
-  if (Math.random() < passUrge * dt) pass(state, index);
+  if (state.rng.next() < passUrge * dt) pass(state, index);
 }
 
 /**
@@ -1046,7 +1058,7 @@ function pass(state: MatchState, from: number) {
     // offside targets are filtered out entirely the law never fires, because
     // nothing in the simulation would ever break it.
     if (isOffside(p, passer, state.players, state.ball.x)) {
-      if (Math.random() > (1 - passer.passing / 99) * 0.35) return;
+      if (state.rng.next() > (1 - passer.passing / 99) * 0.35) return;
     }
 
     const progress = (goalX > 0 ? p.x - passer.x : passer.x - p.x) / 10;
@@ -1075,9 +1087,9 @@ function pass(state: MatchState, from: number) {
   // hammered and long ones do reach.
   const power = Math.min(30, 6 + distance * 1.05);
   const error = (1 - passer.passing / 120) * 0.26;
-  const angle = Math.atan2(dz, dx) + (Math.random() - 0.5) * error;
+  const angle = Math.atan2(dz, dx) + (state.rng.next() - 0.5) * error;
   const loft = distance > 22 ? 3.6 : 0;
-  const spin = (Math.random() - 0.5) * 14 * (1 - passer.passing / 140);
+  const spin = (state.rng.next() - 0.5) * 14 * (1 - passer.passing / 140);
 
   strike(state.ball, angle, power, loft, spin);
   state.lastTouch = from;
@@ -1110,18 +1122,18 @@ function clear(state: MatchState, from: number) {
 
   // Deep inside their own area with nowhere to go, a defender concedes the
   // corner on purpose rather than risk playing it across their own box.
-  if (Math.abs(player.x - ownGoal) < 13 && Math.random() < 0.3) {
+  if (Math.abs(player.x - ownGoal) < 13 && state.rng.next() < 0.3) {
     const behind = Math.atan2(Math.sign(player.z || 1) * 12, -dir * 14);
-    strike(state.ball, behind, 16 + Math.random() * 8, 4, 0);
+    strike(state.ball, behind, 16 + state.rng.next() * 8, 4, 0);
     return;
   }
 
   // Otherwise upfield, angled toward the nearest touchline as often as not.
-  const wide = Math.random() < 0.55;
-  const towardZ = wide ? Math.sign(player.z || 1) * 34 : (Math.random() - 0.5) * 30;
+  const wide = state.rng.next() < 0.55;
+  const towardZ = wide ? Math.sign(player.z || 1) * 34 : (state.rng.next() - 0.5) * 30;
   const angle = Math.atan2(towardZ - player.z, dir * 45);
 
-  strike(state.ball, angle, 26 + Math.random() * 10, 7 + Math.random() * 3, 0);
+  strike(state.ball, angle, 26 + state.rng.next() * 10, 7 + state.rng.next() * 3, 0);
 }
 
 /** A corner: hung into the box rather than played to feet. */
@@ -1129,20 +1141,20 @@ function cross(state: MatchState, from: number) {
   const crosser = state.players[from]!;
   const goalX = goalMouthX(crosser.team);
   // Aim at the penalty spot, give or take.
-  const aimX = goalX - Math.sign(goalX) * (9 + Math.random() * 5);
-  const aimZ = (Math.random() - 0.5) * 12;
+  const aimX = goalX - Math.sign(goalX) * (9 + state.rng.next() * 5);
+  const aimZ = (state.rng.next() - 0.5) * 12;
   const dx = aimX - crosser.x;
   const dz = aimZ - crosser.z;
   const distance = Math.hypot(dx, dz) || 1;
 
-  const angle = Math.atan2(dz, dx) + (Math.random() - 0.5) * 0.14;
+  const angle = Math.atan2(dz, dx) + (state.rng.next() - 0.5) * 0.14;
   strike(
     state.ball,
     angle,
     distance * 0.92,
     6.5,
     // Corners are whipped; the spin is what bends them toward or away from goal.
-    (crosser.z > 0 ? -1 : 1) * (18 + Math.random() * 14),
+    (crosser.z > 0 ? -1 : 1) * (18 + state.rng.next() * 14),
   );
   state.lastTouch = from;
   state.passIntent = null;
@@ -1175,17 +1187,17 @@ function shoot(state: MatchState, from: number, type: ShotType = 'driven') {
       0.26 + accuracy * 0.3 - Math.max(0, distance - 6) * 0.011 + placementBonus,
     ),
   );
-  const onTarget = Math.random() < onTargetChance;
+  const onTarget = state.rng.next() < onTargetChance;
 
   // On target: somewhere inside the frame, better players nearer the corners.
   // Off target: past a post or over the bar, by a plausible margin.
   const half = GOAL_WIDTH / 2;
   let aimZ: number;
   if (onTarget) {
-    aimZ = (Math.random() - 0.5) * 2 * half * (0.55 + accuracy * 0.4);
+    aimZ = (state.rng.next() - 0.5) * 2 * half * (0.55 + accuracy * 0.4);
   } else {
-    const side = Math.random() < 0.5 ? -1 : 1;
-    aimZ = side * (half + 0.6 + Math.random() * 4.5);
+    const side = state.rng.next() < 0.5 ? -1 : 1;
+    aimZ = side * (half + 0.6 + state.rng.next() * 4.5);
   }
 
   const angle = Math.atan2(aimZ - shooter.z, dx);
@@ -1195,14 +1207,14 @@ function shoot(state: MatchState, from: number, type: ShotType = 'driven') {
   // A shot that is off target is as often lifted over as dragged wide.
   const loft = onTarget
     ? Math.min(2.2, distance * 0.03)
-    : Math.random() < 0.4
-      ? 5.5 + Math.random() * 3
+    : state.rng.next() < 0.4
+      ? 5.5 + state.rng.next() * 3
       : Math.min(2.5, distance * 0.04);
 
   // Better finishers put more shape on it; the bend is what makes a struck
   // ball look struck rather than launched. A finesse shot is defined by it.
   const spinScale = type === 'finesse' ? 2.4 : type === 'power' ? 0.5 : 1;
-  const spin = (Math.random() - 0.5) * 2 * (14 + accuracy * 30) * spinScale;
+  const spin = (state.rng.next() - 0.5) * 2 * (14 + accuracy * 30) * spinScale;
 
   strike(state.ball, angle, power, loft, spin);
   state.lastTouch = from;
@@ -1240,7 +1252,7 @@ function checkGoal(state: MatchState) {
 
     const saveChance = Math.min(0.93, coverage * speedPenalty * (0.55 + skill * 0.55));
 
-    if (Math.random() < saveChance) {
+    if (state.rng.next() < saveChance) {
       // Saved. Roughly a third are tipped behind for a corner — which is
       // where corners come from, since defenders in this simulation never
       // put the ball out themselves.
@@ -1250,15 +1262,15 @@ function checkGoal(state: MatchState) {
       state.lastTouch = keeperIndex;
       state.saves[defendingTeam] += 1;
 
-      if (Math.random() < 0.34) {
+      if (state.rng.next() < 0.34) {
         ball.x = side * (HALF_L + 0.4);
         ball.vx = side * 3;
-        ball.vz = (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 7);
+        ball.vz = (state.rng.next() < 0.5 ? -1 : 1) * (6 + state.rng.next() * 7);
         ball.vy = 1.4;
       } else {
         ball.x = side * (HALF_L - 3.5);
-        ball.vx = -side * (6 + Math.random() * 10);
-        ball.vz = (Math.random() < 0.5 ? -1 : 1) * (9 + Math.random() * 11);
+        ball.vx = -side * (6 + state.rng.next() * 10);
+        ball.vz = (state.rng.next() < 0.5 ? -1 : 1) * (9 + state.rng.next() * 11);
         ball.vy = 2.2;
       }
       return;
