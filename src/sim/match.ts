@@ -8,13 +8,31 @@
  * no conversion lives between them.
  */
 
-import { PITCH_LENGTH, PITCH_WIDTH, GOAL_WIDTH } from '@/render/pitch';
+import { GOAL_WIDTH } from '@/render/pitch';
 import type { Player } from '@/world/generate';
+import {
+  createBall,
+  groundSpeed,
+  integrate,
+  restingPoint,
+  strike,
+  type Ball,
+} from './ball';
+import {
+  checkOutOfPlay,
+  HALF_L,
+  HALF_W,
+  isBetweenPosts,
+  isOffside,
+  judgeTackle,
+  restartForFoul,
+  restartForOffside,
+  restartForOutOfPlay,
+  type Restart,
+  type RestartType,
+} from './rules';
 
 export const TICK = 1 / 60;
-
-const HALF_L = PITCH_LENGTH / 2;
-const HALF_W = PITCH_WIDTH / 2;
 
 export interface SimPlayer {
   id: string;
@@ -38,26 +56,38 @@ export interface SimPlayer {
   preferredFoot: 'L' | 'R';
   /** Seconds before this player can strike the ball again. */
   shotCooldown: number;
+  cards: 'none' | 'yellow' | 'red';
 }
 
-export interface Ball {
-  x: number;
-  z: number;
-  /** Height above the turf, metres. */
-  y: number;
-  vx: number;
-  vz: number;
-  vy: number;
-  /** Index into players, or null when loose. */
-  owner: number | null;
-}
+export type { Ball };
 
-export type MatchPhase = 'kickoff' | 'live' | 'goal' | 'halftime' | 'fulltime';
+export type MatchPhase =
+  | 'kickoff'
+  | 'live'
+  | 'restart'
+  | 'goal'
+  | 'halftime'
+  | 'fulltime';
 
 export interface MatchEvent {
-  type: 'goal' | 'halftime' | 'fulltime' | 'kickoff';
+  type:
+    | 'goal'
+    | 'halftime'
+    | 'fulltime'
+    | 'kickoff'
+    | 'throwIn'
+    | 'corner'
+    | 'goalKick'
+    | 'freeKick'
+    | 'penalty'
+    | 'offside'
+    | 'foul'
+    | 'yellow'
+    | 'red'
+    | 'save';
   team?: 0 | 1;
-  scorer?: string;
+  /** Surname, for goals, cards and fouls. */
+  player?: string;
   minute: number;
 }
 
@@ -78,8 +108,17 @@ export interface MatchState {
   possession: [number, number];
   shots: [number, number];
   saves: [number, number];
+  corners: [number, number];
+  fouls: [number, number];
+  offsides: [number, number];
   events: MatchEvent[];
   lastGoal: { team: 0 | 1; scorer: string; minute: number } | null;
+  /** The restart being taken, when the phase is 'restart'. */
+  restart: Restart | null;
+  /** The pass in flight, so offside is judged when it arrives. */
+  passIntent: PassIntent | null;
+  /** What the referee last gave, for the HUD banner. */
+  decision: { text: string; detail: string; until: number } | null;
 }
 
 export interface Intent {
@@ -144,13 +183,14 @@ export function createMatch(
         weakFoot: player.weakFoot,
         preferredFoot: player.preferredFoot,
         shotCooldown: 0,
+        cards: 'none',
       });
     });
   }
 
   return {
     players,
-    ball: { x: 0, z: 0, y: 0, vx: 0, vz: 0, vy: 0, owner: null },
+    ball: createBall(),
     score: [0, 0],
     clock: 0,
     half: 1,
@@ -162,8 +202,14 @@ export function createMatch(
     possession: [0, 0],
     shots: [0, 0],
     saves: [0, 0],
+    corners: [0, 0],
+    fouls: [0, 0],
+    offsides: [0, 0],
     events: [],
     lastGoal: null,
+    restart: null,
+    passIntent: null,
+    decision: null,
   };
 }
 
@@ -197,6 +243,181 @@ function resetPositions(state: MatchState, kickingTeam: 0 | 1) {
   state.controlledIndex = state.players.findIndex((p) => p.team === 0 && p.number !== 1);
 }
 
+/** Records who the ball was played to, so offside can be judged on arrival. */
+export interface PassIntent {
+  from: number;
+  target: number;
+  team: 0 | 1;
+  /** Where the ball was when it was played — the reference for offside. */
+  ballX: number;
+  /**
+   * Everyone on the passing side who was in an offside position at that
+   * moment. Offside is judged when the ball is played, not when it arrives,
+   * and a deflection onto any of them is offside just the same.
+   */
+  offside: number[];
+}
+
+function takePossession(state: MatchState, index: number) {
+  const p = state.players[index]!;
+  state.ball.owner = index;
+  state.lastTouch = index;
+  state.ball.vx = 0;
+  state.ball.vz = 0;
+  state.ball.vy = 0;
+  state.ball.spin = 0;
+  state.passIntent = null;
+  if (p.team === 0) state.controlledIndex = index;
+}
+
+/** A second yellow is a red. */
+function nextCard(p: SimPlayer): 'none' | 'yellow' | 'red' {
+  return p.cards === 'yellow' ? 'red' : 'yellow';
+}
+
+function restartLabel(type: RestartType): string {
+  switch (type) {
+    case 'throwIn':
+      return 'Throw-in';
+    case 'corner':
+      return 'Corner';
+    case 'goalKick':
+      return 'Goal kick';
+    case 'freeKick':
+      return 'Free kick';
+    case 'penalty':
+      return 'Penalty';
+    default:
+      return 'Kick off';
+  }
+}
+
+/**
+ * Stops play and sets up a restart. The nearest team-mate walks to the ball
+ * and plays it once the delay has run down, which is what gives a stoppage its
+ * rhythm instead of teleporting the ball back into open play.
+ */
+function beginRestart(state: MatchState, restart: Restart, label: string, detail: string) {
+  const ball = state.ball;
+  ball.owner = null;
+  ball.x = restart.x;
+  ball.z = restart.z;
+  ball.y = 0;
+  ball.vx = 0;
+  ball.vz = 0;
+  ball.vy = 0;
+  ball.spin = 0;
+
+  // Whoever is closest takes it, except a penalty, which the best finisher does.
+  let taker = -1;
+  if (restart.type === 'penalty') {
+    let best = -Infinity;
+    state.players.forEach((p, i) => {
+      if (p.team !== restart.team) return;
+      if (p.shooting > best) {
+        best = p.shooting;
+        taker = i;
+      }
+    });
+  } else {
+    let nearest = Infinity;
+    state.players.forEach((p, i) => {
+      if (p.team !== restart.team) return;
+      // Keepers take goal kicks and nothing else.
+      const keeper = isKeeper(state, i);
+      if (restart.type === 'goalKick' ? !keeper : keeper) return;
+      const d = Math.hypot(p.x - restart.x, p.z - restart.z);
+      if (d < nearest) {
+        nearest = d;
+        taker = i;
+      }
+    });
+  }
+
+  restart.taker = taker >= 0 ? taker : null;
+  state.restart = restart;
+  state.passIntent = null;
+  state.phase = 'restart';
+  state.decision = { text: label, detail, until: state.clock + 3.2 };
+  state.events.push({
+    type: restart.type === 'kickoff' ? 'kickoff' : restart.type,
+    team: restart.team,
+    minute: minuteOf(state),
+  });
+}
+
+/** Advances a restart: the taker walks to the ball, then plays it. */
+function stepRestart(state: MatchState, dt: number) {
+  const restart = state.restart;
+  if (!restart) {
+    state.phase = 'live';
+    return;
+  }
+
+  const taker = restart.taker === null ? null : state.players[restart.taker];
+
+  // Everyone else resets toward their shape while the ball is dead.
+  for (let i = 0; i < state.players.length; i += 1) {
+    const p = state.players[i]!;
+    if (i === restart.taker) continue;
+    const tx = p.homeX + (restart.x - 0) * 0.34;
+    const tz = p.homeZ + (restart.z - p.homeZ) * 0.2;
+    const dx = tx - p.x;
+    const dz = tz - p.z;
+    const length = Math.hypot(dx, dz) || 1;
+    const speed = 3.2;
+    p.vx += ((dx / length) * Math.min(1, length / 3) * speed - p.vx) * Math.min(1, dt * 6);
+    p.vz += ((dz / length) * Math.min(1, length / 3) * speed - p.vz) * Math.min(1, dt * 6);
+    p.x += p.vx * dt;
+    p.z += p.vz * dt;
+  }
+
+  if (taker) {
+    // Walk to the ball.
+    const dx = restart.x - taker.x;
+    const dz = restart.z - taker.z;
+    const length = Math.hypot(dx, dz);
+    if (length > 0.5) {
+      const speed = 5.5;
+      taker.vx = (dx / length) * speed;
+      taker.vz = (dz / length) * speed;
+      taker.x += taker.vx * dt;
+      taker.z += taker.vz * dt;
+      return;
+    }
+    taker.vx = 0;
+    taker.vz = 0;
+  }
+
+  restart.delay -= dt;
+  if (restart.delay > 0) return;
+
+  // A stoppage is rest, credited once per restart rather than per tick. Ticked
+  // recovery would depend on how long a restart happens to take, and a restart
+  // takes the same wall-clock time whatever the half length — so short matches
+  // would rest proportionally far more than long ones.
+  recover(state, 1.1 * (720 / (state.halfLength * 2)));
+
+  // Play it.
+  if (restart.taker !== null) {
+    state.ball.owner = restart.taker;
+    state.lastTouch = restart.taker;
+    const p = state.players[restart.taker]!;
+    if (p.team === 0) state.controlledIndex = restart.taker;
+  }
+  state.restart = null;
+  state.phase = 'live';
+
+  // A penalty is struck immediately; everything else is played out.
+  if (restart.type === 'penalty' && restart.taker !== null) {
+    shoot(state, restart.taker);
+  } else if (restart.type === 'corner' && restart.taker !== null) {
+    cross(state, restart.taker);
+  } else if (restart.taker !== null) {
+    pass(state, restart.taker);
+  }
+}
+
 /** Gives stamina back at a stoppage, as a break in play does. */
 function recover(state: MatchState, amount: number) {
   for (const p of state.players) {
@@ -216,6 +437,13 @@ function distanceToBall(p: SimPlayer, ball: Ball): number {
 
 export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
   if (state.phase === 'fulltime') return state;
+
+  // ---- Restarts -----------------------------------------------------------
+  if (state.phase === 'restart') {
+    state.clock += dt;
+    stepRestart(state, dt);
+    return state;
+  }
 
   // ---- Non-live phases ----------------------------------------------------
   if (state.phase !== 'live') {
@@ -319,8 +547,13 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
       // The keeper holds the line and shuffles across with the ball, coming
       // a few metres off it as the ball nears. Everything about whether a
       // shot goes in follows from where they are standing.
+      // Off the line to narrow the angle, but only a little — and *less* the
+      // closer the ball gets, because a keeper standing metres out when the
+      // shot arrives cannot get back to cover the goal. The previous form had
+      // this inverted and put them 5m off their line as the ball crossed it.
       const line = ownGoalX(p.team) * 0.985;
-      const advance = Math.max(0, 1 - Math.abs(ball.x - line) / 34) * 4.5;
+      const ballRange = Math.abs(ball.x - line);
+      const advance = Math.min(1.6, Math.max(0, (ballRange - 8) / 14) * 1.6);
       const targetX = line - Math.sign(line) * advance;
       const targetZ = Math.max(-GOAL_WIDTH, Math.min(GOAL_WIDTH, ball.z * 0.55));
       const dx = targetX - p.x;
@@ -346,8 +579,11 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
       const nearest = nearestToBall(state, p.team);
       const shouldPress = !attacking && nearest === i;
 
-      const tx = shouldPress ? ball.x : targetX;
-      const tz = shouldPress ? ball.z : targetZ;
+      // Chase where the ball is going to be, not where it is. Running at a
+      // rolling ball's current position means arriving permanently behind it.
+      const settle = ball.owner === null ? restingPoint(ball) : { x: ball.x, z: ball.z };
+      const tx = shouldPress ? settle.x : targetX;
+      const tz = shouldPress ? settle.z : targetZ;
       const dx = tx - p.x;
       const dz = tz - p.z;
       const length = Math.hypot(dx, dz) || 1;
@@ -391,6 +627,7 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
       ball.vx = p.vx;
       ball.vz = p.vz;
       ball.vy = 0;
+      ball.spin = 0;
     }
   }
 
@@ -408,54 +645,149 @@ export function step(state: MatchState, intent: Intent, dt = TICK): MatchState {
 
   // ---- Loose ball ---------------------------------------------------------
   if (ball.owner === null) {
-    ball.x += ball.vx * dt;
-    ball.z += ball.vz * dt;
-    ball.y += ball.vy * dt;
-
-    if (ball.y > 0) {
-      ball.vy -= 9.81 * dt;
-    } else {
-      ball.y = 0;
-      if (ball.vy < -0.5) ball.vy = -ball.vy * 0.42; // bounce
-      else ball.vy = 0;
-    }
-
-    // Rolling resistance and air drag.
-    const drag = ball.y > 0.05 ? 0.06 : 1.05;
-    ball.vx -= ball.vx * drag * dt;
-    ball.vz -= ball.vz * drag * dt;
+    integrate(ball, dt);
 
     checkGoal(state);
     if (state.phase !== 'live') return state;
-    keepInPlay(state);
 
-    // First player within reach takes possession.
+    // Out of play, before anyone can pick it up beyond the line.
+    const out = checkOutOfPlay(ball);
+    if (out.kind !== 'none') {
+      const toucher = state.lastTouch === null ? null : state.players[state.lastTouch];
+      const restart = restartForOutOfPlay(out, ball, toucher?.team ?? 0);
+      if (restart.type === 'corner') state.corners[restart.team] += 1;
+      beginRestart(state, restart, restartLabel(restart.type), '');
+      return state;
+    }
+
+    // First player within reach takes possession. Reach grows a little with
+    // how fast the ball is travelling, so a driven pass is not simply walked
+    // through by whoever happens to be standing near it.
+    const pace = groundSpeed(ball);
+    // Control shrinks as the ball speeds up: a driven shot is harder to take
+    // than a rolling one, not easier. Growing reach with pace — as this did —
+    // meant the harder a shot was struck the more likely it was intercepted,
+    // and almost none survived the flight to the goal.
+    const baseReach = Math.max(0.62, 0.95 - pace * 0.008);
+
+    // Whoever is *nearest* takes it, not whoever comes first in the array.
+    // Team 0 occupies indices 0-10 and team 1 occupies 11-21, so scanning in
+    // index order and taking the first player in range handed team 0 every
+    // fifty-fifty in the match — worth twice the shots and seven times the
+    // saves before this was found.
+    let claimant = -1;
+    let claimDistance = Infinity;
+
     for (let i = 0; i < state.players.length; i += 1) {
       const p = state.players[i]!;
-      if (distanceToBall(p, ball) < 0.85 && ball.y < 1.4) {
-        ball.owner = i;
-        state.lastTouch = i;
-        ball.vx = 0;
-        ball.vz = 0;
-        ball.vy = 0;
-        if (p.team === 0) state.controlledIndex = i;
-        break;
+
+      // A keeper commands their area rather than waiting on the line. Without
+      // this, every ball that trickles goalward reaches the frame and gets
+      // counted as a shot on target — nearly twenty a match.
+      const keeper = isKeeper(state, i);
+      const inOwnArea =
+        keeper && Math.abs(p.x - ownGoalX(p.team)) < 16.5 && Math.abs(p.z) < 20.16;
+      // A keeper gathers a loose ball or a back-pass in their area, but they
+      // cannot simply pick up a shot travelling at thirty metres a second —
+      // that has to be saved, which is handled at the goal line.
+      const canGather = inOwnArea && pace < 13;
+      const reach = canGather ? 3.2 : baseReach;
+      const ceiling = canGather ? 2.6 : 1.5;
+
+      if (ball.y > ceiling) continue;
+      const distance = distanceToBall(p, ball);
+      if (distance > reach) continue;
+
+      // A keeper in their own box beats an outfield player to it.
+      const weighted = canGather ? distance * 0.5 : distance;
+      if (weighted < claimDistance) {
+        claimDistance = weighted;
+        claimant = i;
       }
     }
+
+    if (claimant >= 0) {
+      const p = state.players[claimant]!;
+
+      // A pass reaching anyone who was offside when it was played is called.
+      const played = state.passIntent;
+      if (played && p.team === played.team && played.offside.includes(claimant)) {
+        state.offsides[p.team] += 1;
+        state.passIntent = null;
+        const restart = restartForOffside(p);
+        beginRestart(state, restart, 'Offside', p.last);
+        state.events.push({
+          type: 'offside',
+          team: p.team,
+          player: p.last,
+          minute: minuteOf(state),
+        });
+        return state;
+      }
+
+      takePossession(state, claimant);
+    }
   } else {
-    // A tackle: an opponent close enough, weighted by defending against pace.
+    // ---- Tackling ---------------------------------------------------------
     const carrier = state.players[ball.owner]!;
+
+    // Nearest challenger, not first by index — the same bias as above.
+    let challenger = -1;
+    let challengeGap = Infinity;
     for (let i = 0; i < state.players.length; i += 1) {
       const p = state.players[i]!;
       if (p.team === carrier.team) continue;
       const gap = Math.hypot(p.x - carrier.x, p.z - carrier.z);
-      if (gap > 1.1) continue;
-      const odds = (p.defending / (p.defending + carrier.pace)) * dt * 3.2;
+      if (gap <= 1.2 && gap < challengeGap) {
+        challengeGap = gap;
+        challenger = i;
+      }
+    }
+
+    const tackler = challenger >= 0 ? state.players[challenger]! : null;
+    if (tackler) {
+      const odds = (tackler.defending / (tackler.defending + carrier.pace)) * dt * 3.2;
       if (Math.random() < odds) {
-        ball.owner = i;
-        state.lastTouch = i;
-        if (p.team === 0) state.controlledIndex = i;
-        break;
+        // Closing speed decides how the challenge is judged.
+        const closing = Math.hypot(tackler.vx - carrier.vx, tackler.vz - carrier.vz);
+        const cleanlyWon =
+          Math.random() < tackler.defending / (tackler.defending + carrier.pace);
+        const verdict = judgeTackle(cleanlyWon, closing, tackler.defending, Math.random);
+
+        if (verdict.foul) {
+          state.fouls[tackler.team] += 1;
+          if (verdict.card === 'red') tackler.cards = 'red';
+          else if (verdict.card === 'yellow') tackler.cards = nextCard(tackler);
+
+          const restart = restartForFoul(carrier.x, carrier.z, tackler.team);
+          const label =
+            restart.type === 'penalty'
+              ? 'Penalty'
+              : verdict.card === 'red'
+                ? 'Red card'
+                : verdict.card === 'yellow'
+                  ? 'Yellow card'
+                  : 'Free kick';
+
+          beginRestart(state, restart, label, tackler.last);
+          state.events.push({
+            type: 'foul',
+            team: tackler.team,
+            player: tackler.last,
+            minute: minuteOf(state),
+          });
+          if (verdict.card !== 'none') {
+            state.events.push({
+              type: verdict.card,
+              team: tackler.team,
+              player: tackler.last,
+              minute: minuteOf(state),
+            });
+          }
+          return state;
+        }
+
+        if (cleanlyWon) takePossession(state, challenger);
       }
     }
     checkGoal(state);
@@ -483,18 +815,23 @@ function decideOnBall(state: MatchState, index: number, dt: number) {
     pressure = Math.min(pressure, Math.hypot(p.x - carrier.x, p.z - carrier.z));
   }
 
+  // Nobody shoots into a defender's shins from a metre away. Without this the
+  // shot count runs away and almost none of them reach the goal, because they
+  // are all blocked the instant they are struck.
+  const laneBlocked = isShootingLaneBlocked(state, carrier, goalX);
+
   // Shooting: near-certain inside the box, tailing off to nothing past 30m.
   // A player who has just struck the ball needs to reset before the next one;
   // without this, a save that drops in the six-yard box draws a burst of
   // point-blank shots from the same striker and the shot count runs away.
-  if (range < 30 && carrier.shotCooldown <= 0) {
+  if (range < 30 && carrier.shotCooldown <= 0 && !laneBlocked) {
     // A flatter curve than pure proximity: real teams shoot from range too,
     // and a mix weighted almost entirely to six-yard chances puts every shot
     // on target and turns the keeper into a wall.
     const appetite = (1 - range / 30) ** 0.8;
     const confidence = 0.35 + (carrier.shooting / 99) * 0.65;
     const squeezed = pressure < 2.2 ? 1.5 : 1;
-    if (Math.random() < appetite * confidence * squeezed * dt * 0.22) {
+    if (Math.random() < appetite * confidence * squeezed * dt * 0.55) {
       shoot(state, index);
       return;
     }
@@ -503,6 +840,33 @@ function decideOnBall(state: MatchState, index: number, dt: number) {
   // Passing: constantly under pressure, occasionally in space to keep it moving.
   const passUrge = pressure < 3 ? 2.6 : pressure < 7 ? 1.1 : 0.45;
   if (Math.random() < passUrge * dt) pass(state, index);
+}
+
+/**
+ * Whether an opponent is standing in the way of a shot at goal.
+ *
+ * Measured as perpendicular distance from the line to goal, only counting
+ * opponents actually between the shooter and the target.
+ */
+function isShootingLaneBlocked(state: MatchState, shooter: SimPlayer, goalX: number): boolean {
+  const dx = goalX - shooter.x;
+  const dz = -shooter.z;
+  const length = Math.hypot(dx, dz) || 1;
+  const ux = dx / length;
+  const uz = dz / length;
+
+  for (const p of state.players) {
+    if (p.team === shooter.team) continue;
+    const rx = p.x - shooter.x;
+    const rz = p.z - shooter.z;
+    // How far along the line to goal they stand.
+    const along = rx * ux + rz * uz;
+    if (along < 0.4 || along > Math.min(length, 9)) continue;
+    // How far off it.
+    const across = Math.abs(rx * uz - rz * ux);
+    if (across < 1.1) return true;
+  }
+  return false;
 }
 
 function nearestToBall(state: MatchState, team: 0 | 1): number {
@@ -523,39 +887,92 @@ function pass(state: MatchState, from: number) {
   const passer = state.players[from]!;
   const goalX = goalMouthX(passer.team);
 
-  // Prefer a team-mate ahead of the ball and in space.
+  // Prefer a team-mate ahead of the ball and in space — and, since offside is
+  // now enforced, one who is actually onside when the ball is played.
   let target: SimPlayer | null = null;
+  let targetIndex = -1;
   let bestScore = -Infinity;
-  for (const p of state.players) {
-    if (p.team !== passer.team || p === passer) continue;
+
+  state.players.forEach((p, i) => {
+    if (p.team !== passer.team || p === passer) return;
     const distance = Math.hypot(p.x - passer.x, p.z - passer.z);
-    if (distance < 3 || distance > 38) continue;
+    if (distance < 3 || distance > 38) return;
+    // A good passer times the ball; a poor one plays team-mates offside. If
+    // offside targets are filtered out entirely the law never fires, because
+    // nothing in the simulation would ever break it.
+    if (isOffside(p, passer, state.players, state.ball.x)) {
+      if (Math.random() > (1 - passer.passing / 99) * 0.35) return;
+    }
+
     const progress = (goalX > 0 ? p.x - passer.x : passer.x - p.x) / 10;
-    const nearestOpponent = Math.min(
-      ...state.players.filter((o) => o.team !== passer.team).map((o) => Math.hypot(o.x - p.x, o.z - p.z)),
-    );
+    let nearestOpponent = Infinity;
+    for (const o of state.players) {
+      if (o.team === passer.team) continue;
+      nearestOpponent = Math.min(nearestOpponent, Math.hypot(o.x - p.x, o.z - p.z));
+    }
     const score = progress + nearestOpponent * 0.25 - distance * 0.04;
     if (score > bestScore) {
       bestScore = score;
       target = p;
+      targetIndex = i;
     }
-  }
-  if (!target) return;
+  });
 
-  const dx = target.x - passer.x;
-  const dz = target.z - passer.z;
+  const receiver = target as SimPlayer | null;
+  if (!receiver) return;
+
+  const dx = receiver.x - passer.x;
+  const dz = receiver.z - passer.z;
   const distance = Math.hypot(dx, dz) || 1;
 
   // Weight the pass to arrive, with error scaled off the passer's rating.
-  const power = Math.min(26, 7 + distance * 0.95);
+  // Ball speed accounts for rolling resistance, so short passes are not
+  // hammered and long ones do reach.
+  const power = Math.min(30, 6 + distance * 1.05);
   const error = (1 - passer.passing / 120) * 0.26;
   const angle = Math.atan2(dz, dx) + (Math.random() - 0.5) * error;
+  const loft = distance > 22 ? 3.6 : 0;
+  const spin = (Math.random() - 0.5) * 14 * (1 - passer.passing / 140);
 
-  state.ball.owner = null;
+  strike(state.ball, angle, power, loft, spin);
   state.lastTouch = from;
-  state.ball.vx = Math.cos(angle) * power;
-  state.ball.vz = Math.sin(angle) * power;
-  state.ball.vy = distance > 22 ? 3.4 : 0;
+  const offside: number[] = [];
+  state.players.forEach((p, i) => {
+    if (p.team !== passer.team || i === from) return;
+    if (isOffside(p, passer, state.players, passer.x)) offside.push(i);
+  });
+
+  state.passIntent = {
+    from,
+    target: targetIndex,
+    team: passer.team,
+    ballX: passer.x,
+    offside,
+  };
+}
+
+/** A corner: hung into the box rather than played to feet. */
+function cross(state: MatchState, from: number) {
+  const crosser = state.players[from]!;
+  const goalX = goalMouthX(crosser.team);
+  // Aim at the penalty spot, give or take.
+  const aimX = goalX - Math.sign(goalX) * (9 + Math.random() * 5);
+  const aimZ = (Math.random() - 0.5) * 12;
+  const dx = aimX - crosser.x;
+  const dz = aimZ - crosser.z;
+  const distance = Math.hypot(dx, dz) || 1;
+
+  const angle = Math.atan2(dz, dx) + (Math.random() - 0.5) * 0.14;
+  strike(
+    state.ball,
+    angle,
+    distance * 0.92,
+    6.5,
+    // Corners are whipped; the spin is what bends them toward or away from goal.
+    (crosser.z > 0 ? -1 : 1) * (18 + Math.random() * 14),
+  );
+  state.lastTouch = from;
+  state.passIntent = null;
 }
 
 function shoot(state: MatchState, from: number) {
@@ -595,44 +1012,73 @@ function shoot(state: MatchState, from: number) {
   const angle = Math.atan2(aimZ - shooter.z, dx);
   const power = 24 + accuracy * 13;
 
-  state.ball.owner = null;
-  state.lastTouch = from;
-  state.ball.vx = Math.cos(angle) * power;
-  state.ball.vz = Math.sin(angle) * power;
   // A shot that is off target is as often lifted over as dragged wide.
-  state.ball.vy = onTarget
+  const loft = onTarget
     ? Math.min(2.2, distance * 0.03)
     : Math.random() < 0.4
       ? 5.5 + Math.random() * 3
       : Math.min(2.5, distance * 0.04);
+
+  // Better finishers put more shape on it; the bend is what makes a struck
+  // ball look struck rather than launched.
+  const spin = (Math.random() - 0.5) * 2 * (14 + accuracy * 30);
+
+  strike(state.ball, angle, power, loft, spin);
+  state.lastTouch = from;
+  state.passIntent = null;
 }
 
 function checkGoal(state: MatchState) {
   const ball = state.ball;
   if (Math.abs(ball.x) < HALF_L) return;
-  if (Math.abs(ball.z) > GOAL_WIDTH / 2) return;
-  if (ball.y > 2.44) return;
+  if (!isBetweenPosts(ball)) return;
 
-  // The keeper defending this goal gets a chance first. Reach falls off with
-  // how far they have to move and how hard the ball is struck — which is what
-  // turns a shot count into a realistic conversion rate.
+  // The keeper defending this goal gets a chance first.
+  //
+  // Expressed as an explicit probability rather than a threshold comparison:
+  // the previous form saturated near 1 for most shots, so a small change to
+  // one coefficient swung the match from 1.6 goals to 12.7.
   const defendingTeam: 0 | 1 = ball.x > 0 ? 1 : 0;
   const keeperIndex = defendingTeam === 0 ? 0 : 11;
   const keeper = state.players[keeperIndex];
+
   if (keeper) {
-    const travel = Math.hypot(keeper.x - ball.x, keeper.z - ball.z);
+    const skill = keeper.defending / 99;
+    // Keepers dive across the goal, so lateral distance is what they have to
+    // cover; being a step off the line matters far less.
+    const travel = Math.hypot((keeper.x - ball.x) * 0.45, keeper.z - ball.z);
     const power = Math.hypot(ball.vx, ball.vz);
-    const reach = 1.9 + (keeper.defending / 99) * 3.2;
-    const hurry = Math.max(0.25, 1 - power / 40);
-    if (travel < reach * hurry * 2.6 && Math.random() < (1 - travel / (reach * 2.8)) * hurry * 2.4) {
-      // Saved. A keeper pushes the ball away from goal and wide, or holds it;
-      // either way the danger clears rather than sitting on the six-yard line.
-      ball.x = Math.sign(ball.x) * (HALF_L - 3.5);
-      ball.vx = -Math.sign(ball.x) * (6 + Math.random() * 10);
-      ball.vz = (Math.random() < 0.5 ? -1 : 1) * (9 + Math.random() * 11);
-      ball.vy = 2.2;
+
+    // How much of the goal they can reach, and how well placed they were.
+    const reach = 2.2 + skill * 3.0;
+    const coverage = Math.max(0, Math.min(1, 1 - travel / reach));
+
+    // A ball struck hard gives them less time to get down to it.
+    const speedPenalty = Math.max(0.3, Math.min(1, 1 - (power - 14) / 34));
+
+    const saveChance = Math.min(0.93, coverage * speedPenalty * (0.55 + skill * 0.55));
+
+    if (Math.random() < saveChance) {
+      // Saved. Roughly a third are tipped behind for a corner — which is
+      // where corners come from, since defenders in this simulation never
+      // put the ball out themselves.
+      const side = Math.sign(ball.x) || 1;
       ball.owner = null;
+      ball.spin = 0;
+      state.lastTouch = keeperIndex;
       state.saves[defendingTeam] += 1;
+
+      if (Math.random() < 0.34) {
+        ball.x = side * (HALF_L + 0.4);
+        ball.vx = side * 3;
+        ball.vz = (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 7);
+        ball.vy = 1.4;
+      } else {
+        ball.x = side * (HALF_L - 3.5);
+        ball.vx = -side * (6 + Math.random() * 10);
+        ball.vz = (Math.random() < 0.5 ? -1 : 1) * (9 + Math.random() * 11);
+        ball.vy = 2.2;
+      }
       return;
     }
   }
@@ -646,22 +1092,9 @@ function checkGoal(state: MatchState) {
 
   state.score[team] += 1;
   state.lastGoal = { team, scorer, minute: minuteOf(state) };
-  state.events.push({ type: 'goal', team, scorer, minute: minuteOf(state) });
+  state.events.push({ type: 'goal', team, player: scorer, minute: minuteOf(state) });
   state.phase = 'goal';
   state.phaseTimer = 4.2;
-}
-
-function keepInPlay(state: MatchState) {
-  const ball = state.ball;
-  // Simplified restarts: the ball is returned to play near where it left.
-  if (Math.abs(ball.z) > HALF_W) {
-    ball.z = Math.sign(ball.z) * (HALF_W - 0.4);
-    ball.vz *= -0.32;
-  }
-  if (Math.abs(ball.x) > HALF_L) {
-    ball.x = Math.sign(ball.x) * (HALF_L - 0.6);
-    ball.vx *= -0.32;
-  }
 }
 
 export function minuteOf(state: MatchState): number {

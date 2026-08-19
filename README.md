@@ -34,11 +34,18 @@ Everything is playable on a gamepad or a keyboard; no mouse is required.
 | Shoot | △ / Y | K |
 | Sprint | R2 / RT | Shift |
 
+An untouched controller hands the ball back to the AI, so a match plays itself
+rather than stalling — which is also how the balance tests measure it.
+
 ## Layout
 
 ```
 src/
   sim/      deterministic match simulation — fixed timestep, no DOM
+    match.ts   state and the step loop
+    ball.ts    physics: quadratic drag, Magnus, bounce, roll
+    rules.ts   out of play, offside, fouls, restarts
+    replay.ts  rolling position buffer for goal replays
   render/   three.js scene, broadcast camera, the grade pass
   ui/
     tokens/ theme.css — the single source of truth for every colour

@@ -546,3 +546,74 @@
   border-radius: 50%;
   background: var(--fc-danger);
 }
+
+/* ---------------------------------------------------------------------------
+   Referee decision banner — what the official just gave.
+   --------------------------------------------------------------------------- */
+
+.decision {
+  position: absolute;
+  left: 50%;
+  top: 12%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: stretch;
+  filter: drop-shadow(0 3px 12px var(--fc-hud-shadow));
+  animation: fc-settle-in var(--settle) var(--ease-settle) both;
+}
+
+.decision__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 clamp(10px, 1vw, 16px);
+  background: var(--fc-text);
+  color: var(--fc-text-invert);
+  border-radius: 4px 0 0 4px;
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--chevron-run)) 0,
+    100% 50%,
+    calc(100% - var(--chevron-run)) 100%,
+    0 100%
+  );
+}
+
+.decision__mark[data-card='yellow'] { background: var(--fc-warn); }
+.decision__mark[data-card='red'] { background: var(--fc-danger); color: var(--fc-text); }
+
+.decision__glyph {
+  width: clamp(11px, 1vw, 15px);
+  height: clamp(15px, 1.4vw, 21px);
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.decision__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  padding: clamp(7px, 0.8vw, 12px) clamp(14px, 1.4vw, 22px);
+  margin-left: -1px;
+  background: var(--fc-hud-fill);
+  border-radius: 0 4px 4px 0;
+  backdrop-filter: blur(6px);
+}
+
+.decision__text {
+  font-weight: 700;
+  font-size: clamp(13px, 1.25vw, 19px);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fc-text);
+  white-space: nowrap;
+}
+
+.decision__detail {
+  font-size: clamp(10px, 0.85vw, 13px);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+  white-space: nowrap;
+}

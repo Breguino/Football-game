@@ -105,6 +105,14 @@ export function MatchHud({
 
       {showRadar && <Radar state={state} home={home} away={away} />}
 
+      {state.decision && state.clock < state.decision.until && (
+        <Decision
+          key={`${state.decision.text}-${state.decision.until}`}
+          text={state.decision.text}
+          detail={state.decision.detail}
+        />
+      )}
+
       {state.phase === 'goal' && state.lastGoal && (
         <GoalOverlay
           colour={(state.lastGoal.team === 0 ? home : away).colours.primary}
@@ -201,6 +209,35 @@ function Radar({ state, home, away }: { state: MatchState; home: Club; away: Clu
   );
 }
 
+/** The referee's last decision: corner, free kick, offside, a card. */
+function Decision({ text, detail }: { text: string; detail: string }) {
+  const card = text === 'Yellow card' ? 'yellow' : text === 'Red card' ? 'red' : 'none';
+  return (
+    <div className="decision">
+      <span className="decision__mark" data-card={card}>
+        {card === 'none' ? <RefWhistle /> : <span className="decision__glyph" />}
+      </span>
+      <span className="decision__body">
+        <span className="decision__text">{text}</span>
+        {detail && <span className="decision__detail">{detail}</span>}
+      </span>
+    </div>
+  );
+}
+
+function RefWhistle() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 9h9l6-3v12l-6-3H4a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function GoalOverlay({
   colour,
   scorer,
@@ -269,6 +306,24 @@ function BreakOverlay({
             right={String(state.shots[1])}
             fill={(state.shots[0] / shotTotal) * 100}
           />
+          <StatLine
+            label="Corners"
+            left={String(state.corners[0])}
+            right={String(state.corners[1])}
+            fill={share(state.corners)}
+          />
+          <StatLine
+            label="Fouls"
+            left={String(state.fouls[0])}
+            right={String(state.fouls[1])}
+            fill={share(state.fouls)}
+          />
+          <StatLine
+            label="Saves"
+            left={String(state.saves[0])}
+            right={String(state.saves[1])}
+            fill={share(state.saves)}
+          />
         </div>
 
         {state.phase === 'fulltime' && (
@@ -281,6 +336,12 @@ function BreakOverlay({
       </div>
     </div>
   );
+}
+
+/** Home share of a two-team counter, for the split bar. */
+function share([home, away]: [number, number]): number {
+  const total = home + away;
+  return total === 0 ? 50 : (home / total) * 100;
 }
 
 function StatLine({

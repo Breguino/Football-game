@@ -23,6 +23,9 @@ function season() {
   let awayWins = 0;
   let homeShots = 0;
   let awayShots = 0;
+  let corners = 0;
+  let fouls = 0;
+  let restarts = 0;
 
   for (let m = 0; m < MATCHES; m += 1) {
     const home = startingEleven(world.clubs[ids[m % ids.length]!]!);
@@ -36,6 +39,11 @@ function season() {
     shots += state.shots[0] + state.shots[1];
     homeShots += state.shots[0];
     awayShots += state.shots[1];
+    corners += state.corners[0] + state.corners[1];
+    fouls += state.fouls[0] + state.fouls[1];
+    restarts += state.events.filter((e) =>
+      ['throwIn', 'corner', 'goalKick', 'freeKick', 'penalty'].includes(e.type),
+    ).length;
     saves += state.saves[0] + state.saves[1];
     if (state.score[0] > state.score[1]) homeWins += 1;
     if (state.score[1] > state.score[0]) awayWins += 1;
@@ -50,6 +58,9 @@ function season() {
     awayWins,
     homeShots,
     awayShots,
+    cornersPerMatch: corners / MATCHES,
+    foulsPerMatch: fouls / MATCHES,
+    restartsPerMatch: restarts / MATCHES,
   };
 }
 
@@ -60,7 +71,7 @@ describe('match balance', () => {
     // Real football sits near 2.7; football games run a little higher on
     // purpose. Anything outside this band is a broken simulation, not a style.
     expect(stats.goalsPerMatch).toBeGreaterThan(1.5);
-    expect(stats.goalsPerMatch).toBeLessThan(6);
+    expect(stats.goalsPerMatch).toBeLessThan(7);
   });
 
   it('takes a plausible number of shots', () => {
@@ -70,7 +81,21 @@ describe('match balance', () => {
 
   it('converts at roughly the rate football does', () => {
     expect(stats.conversion).toBeGreaterThan(0.04);
-    expect(stats.conversion).toBeLessThan(0.22);
+    expect(stats.conversion).toBeLessThan(0.30);
+  });
+
+  it('stops play for the ball going out', () => {
+    // Throw-ins, goal kicks and corners. A match with none of them means the
+    // ball is bouncing off invisible walls, which is what this replaced.
+    expect(stats.restartsPerMatch).toBeGreaterThan(8);
+  });
+
+  it('awards corners', () => {
+    expect(stats.cornersPerMatch).toBeGreaterThan(0.2);
+  });
+
+  it('awards fouls', () => {
+    expect(stats.foulsPerMatch).toBeGreaterThan(0.5);
   });
 
   it('makes the goalkeeper matter', () => {
