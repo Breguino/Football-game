@@ -8,9 +8,15 @@
  * only the match needs it, so the menus do not wait for it), which is why this
  * is its own build rather than a flag on that one.
  *
- * Verify the result over HTTP, not file:// — with no charset header a browser
- * reads the page as Latin-1 and every accented name comes out as mojibake,
- * which looks like a build bug and is not one.
+ * Two files come out of it, because they are opened in different ways:
+ *
+ *   game.html            body content only, for an Artifact — the platform
+ *                        supplies the doctype, head and charset, and serves it
+ *                        over HTTP.
+ *   game-standalone.html a complete document, for opening from disk. It
+ *                        declares its own charset: with no HTTP header a
+ *                        browser reads a page as Latin-1, and every accented
+ *                        name comes out as mojibake — "MARIMÃ³N" for "Marimón".
  *
  *   node scripts/build-artifact.mjs [outFile]
  */
@@ -64,8 +70,7 @@ if (remaining.length > 0) {
   throw new Error(`CSS still points outside the page: ${[...new Set(remaining)].join(', ')}`);
 }
 
-const html = `<title>Boot Room FC</title>
-<style>
+const shell = `<style>
   html, body { margin: 0; height: 100%; background: #000; }
   #root { height: 100%; }
 </style>
@@ -74,10 +79,28 @@ const html = `<title>Boot Room FC</title>
 <script type="module">${js}</script>
 `;
 
+const html = `<title>Boot Room FC</title>\n${shell}`;
+
+const standalone = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Boot Room FC</title>
+</head>
+<body>
+${shell}</body>
+</html>
+`;
+
+const standaloneOut = out.replace(/\.html$/, '-standalone.html');
 await writeFile(out, html);
+await writeFile(standaloneOut, standalone);
 await rm(work, { recursive: true, force: true });
 
 const kb = (n) => `${(n / 1024).toFixed(0)} KB`;
 console.log(`fonts inlined: ${inlined}/${fonts.length}`);
-console.log(`css ${kb(css.length)}  js ${kb(js.length)}  total ${kb(html.length)}`);
-console.log(`wrote ${out}`);
+console.log(`css ${kb(css.length)}  js ${kb(js.length)}`);
+console.log(`wrote ${out} (${kb(html.length)}) — for an Artifact`);
+console.log(`wrote ${standaloneOut} (${kb(standalone.length)}) — opens from disk`);
